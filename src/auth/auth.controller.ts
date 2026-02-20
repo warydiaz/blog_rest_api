@@ -1,23 +1,46 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import {
+  Body,
+  ConflictException,
+  Controller,
+  HttpCode,
+  HttpStatus,
+  Post,
+} from '@nestjs/common';
 import { AuthDto, SignupDto } from './dto';
+import { AuthService } from './auth.service';
+import { UserError } from './error/user.error';
 
 @Controller('auth')
 export class AuthController {
-  constructor() {}
+  constructor(private authService: AuthService) {}
 
   @Post('signup')
-  signup(@Body() signupDto: SignupDto) {
-    return 'signup';
+  async signup(@Body() signupDto: SignupDto) {
+    try {
+      return await this.authService.signup(signupDto);
+    } catch (error) {
+      if (error instanceof UserError) {
+        throw new ConflictException(error.message);
+      }
+      throw error;
+    }
   }
 
   @HttpCode(HttpStatus.OK)
   @Post('login')
-  login(@Body() authDto: AuthDto) {
-    return 'login';
+  async login(@Body() authDto: AuthDto) {
+    try {
+      return await this.authService.login(authDto);
+    } catch (error) {
+      if (error instanceof UserError) {
+        throw new ConflictException(error.message);
+      }
+      throw error;
+    }
   }
   @HttpCode(HttpStatus.OK)
   @Post('logout')
   logout(@Body() authDto: AuthDto) {
-    return 'logout';
+    return this.authService.logout(authDto);
   }
 }
