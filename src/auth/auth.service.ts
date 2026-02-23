@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { AuthDto, SignupDto } from './dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as argon from 'argon2';
-import { UserError } from './error/user.error';
+import { AuthError } from './error/auth.error';
 import { User } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -19,7 +19,7 @@ export class AuthService {
     const isTaken = await this.isEmailOrUsernameTaken(signupDto);
 
     if (isTaken) {
-      throw UserError.AlreadyTaken();
+      throw AuthError.AlreadyTaken();
     }
 
     const {
@@ -74,13 +74,13 @@ export class AuthService {
     });
 
     if (!user) {
-      throw UserError.InvalidCredentials();
+      throw AuthError.InvalidCredentials();
     }
 
     const passwordMatches = await argon.verify(user.hash, password);
 
     if (!passwordMatches) {
-      throw UserError.InvalidCredentials();
+      throw AuthError.InvalidCredentials();
     }
     return await this.sgnToken(user.id, user.email);
   }

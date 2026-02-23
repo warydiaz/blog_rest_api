@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { AuthDto, SignupDto } from './dto';
 import { AuthService } from './auth.service';
-import { UserError } from './error/user.error';
+import { AuthError } from './error/auth.error';
 
 @Controller('auth')
 export class AuthController {
@@ -19,7 +19,7 @@ export class AuthController {
     try {
       return await this.authService.signup(signupDto);
     } catch (error) {
-      if (error instanceof UserError) {
+      if (error instanceof AuthError) {
         throw new ConflictException(error.message);
       }
       throw error;
@@ -32,12 +32,13 @@ export class AuthController {
     try {
       return await this.authService.login(authDto);
     } catch (error) {
-      if (error instanceof UserError) {
+      if (error instanceof AuthError) {
         throw new ConflictException(error.message);
       }
       throw error;
     }
   }
+
   @HttpCode(HttpStatus.OK)
   @Post('logout')
   logout(@Body() authDto: AuthDto) {
