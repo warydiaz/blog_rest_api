@@ -13,9 +13,8 @@ import {
 import { JwtGuard } from '../auth/guard';
 import { UserService } from './user.service';
 import type { User } from 'generated/prisma/client';
-import { GetUser, GetUserId } from 'src/auth/decorator';
+import { GetUser, GetUserId, GetUserRole } from 'src/auth/decorator';
 import { EditUserDto } from './dto';
-import { GetUserRole } from 'src/auth/decorator/get-user-role.decorator';
 import { Role } from '@prisma/client';
 
 @UseGuards(JwtGuard)
