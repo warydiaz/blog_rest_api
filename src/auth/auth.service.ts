@@ -3,7 +3,7 @@ import { AuthDto, SignupDto } from './dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as argon from 'argon2';
 import { AuthError } from './error/auth.error';
-import { User } from '@prisma/client';
+import { Role, User } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 
@@ -15,7 +15,9 @@ export class AuthService {
     private configService: ConfigService,
   ) {}
 
-  async signup(signupDto: SignupDto): Promise<Omit<User, 'hash'>> {
+  async signup(
+    signupDto: SignupDto,
+  ): Promise<Omit<User, 'hash' | 'refreshToken'>> {
     const isTaken = await this.isEmailOrUsernameTaken(signupDto);
 
     if (isTaken) {
@@ -48,6 +50,7 @@ export class AuthService {
       },
       omit: {
         hash: true,
+        refreshToken: true,
       },
     });
 
@@ -82,13 +85,14 @@ export class AuthService {
     if (!passwordMatches) {
       throw AuthError.InvalidCredentials();
     }
-    return await this.sgnToken(user.id, user.email);
+    return await this.sgnToken(user.id, user.email, user.role);
   }
 
-  private async sgnToken(userId: number, email: string) {
+  private async sgnToken(userId: number, email: string, role: Role) {
     const payload = {
       sub: userId,
       email,
+      role,
     };
 
     const secret = this.configService.get('JWT_SECRET');

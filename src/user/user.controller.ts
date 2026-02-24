@@ -7,12 +7,16 @@ import {
   HttpStatus,
   Patch,
   UseGuards,
+  Param,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { JwtGuard } from '../auth/guard';
 import { UserService } from './user.service';
 import type { User } from 'generated/prisma/client';
 import { GetUser, GetUserId } from 'src/auth/decorator';
 import { EditUserDto } from './dto';
+import { GetUserRole } from 'src/auth/decorator/get-user-role.decorator';
+import { Role } from '@prisma/client';
 
 @UseGuards(JwtGuard)
 @Controller('users')
@@ -25,14 +29,17 @@ export class UserController {
   }
 
   @HttpCode(HttpStatus.OK)
-  @Patch()
-  editUser(@Body() dto: EditUserDto, @GetUserId() userId: number) {
-    return this.userService.editUser(userId, dto);
+  @Patch('me')
+  async editUser(@Body() dto: EditUserDto, @GetUserId() userId: number) {
+    return await this.userService.editUser(userId, dto);
   }
 
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Delete()
-  deleteUser(@GetUserId() userId: number) {
-    return this.userService.deleteUser(userId);
+  @Delete(':id')
+  async deleteUser(
+    @Param('id', ParseIntPipe) userId: number,
+    @GetUserRole() role: Role,
+  ) {
+    return await this.userService.deleteUser(userId, role);
   }
 }

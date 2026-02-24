@@ -2,12 +2,16 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { EditUserDto } from './dto';
 import { UserError } from './error/user.error';
+import { Role, User } from '@prisma/client';
 
 @Injectable()
 export class UserService {
   constructor(private prisma: PrismaService) {}
 
-  async editUser(userId: number, dto: EditUserDto) {
+  async editUser(
+    userId: number,
+    dto: EditUserDto,
+  ): Promise<Omit<User, 'hash' | 'refreshToken'>> {
     const isEmailAvailable = await this.isEmailTaken(dto);
 
     if (isEmailAvailable) {
@@ -22,6 +26,7 @@ export class UserService {
       },
       omit: {
         hash: true,
+        refreshToken: true,
       },
     });
   }
@@ -36,7 +41,11 @@ export class UserService {
     return !!user;
   }
 
-  async deleteUser(userId: number) {
+  async deleteUser(userId: number, role: Role): Promise<void> {
+    if (role !== Role.ADMIN) {
+      throw UserError.UnauthorizedToDeleteUser();
+    }
+
     const deletedUser = await this.prisma.user.delete({
       where: {
         id: userId,
@@ -46,6 +55,5 @@ export class UserService {
     if (!deletedUser) {
       throw UserError.UserNotFound();
     }
-    return deletedUser;
   }
 }

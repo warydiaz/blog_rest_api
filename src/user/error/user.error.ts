@@ -16,4 +16,8 @@ export class UserError extends BaseError {
   static UserNotFound() {
     return new UserError(`User not found`);
   }
+
+  static UnauthorizedToDeleteUser() {
+    return new UserError(`Unauthorized to delete user`);
+  }
 }

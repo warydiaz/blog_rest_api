@@ -29,7 +29,6 @@ export class SignupDto {
   @IsOptional()
   @IsString()
   avatarUrl?: string;
-  @IsOptional()
   @IsEnum(Role)
-  role?: Role;
+  role: Role;
 }

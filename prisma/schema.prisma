@@ -29,7 +29,7 @@ model User {
   lastName     String?
   bio          String?
   avatarUrl    String?
-  role         Role?
+  role         Role
   refreshToken String?
 
   @@map("users")
