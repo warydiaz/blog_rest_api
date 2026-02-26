@@ -17,38 +17,16 @@ export class PostService {
     return posts;
   }
 
-  async getPostBySlug(slug: string): Promise<Post | null> {
-    const post = await this.prismaService.post.findUnique({
-      where: { slug },
-    });
-
-    return post;
+  async getPostBySlug(slug: string): Promise<Post> {
+    return this.findPostOrFail(slug);
   }
 
   async createPost(userId: number, dto: CreatePostDto): Promise<Post> {
-    const existCategory = await this.prismaService.category.findUnique({
-      where: { id: dto.categoryId },
+    await this.validateCreateConstraints(dto);
+
+    return this.prismaService.post.create({
+      data: { ...dto, authorId: userId },
     });
-
-    if (!existCategory) {
-      throw CategoryError.CategoryNotFound();
-    }
-
-    const existSlug = await this.prismaService.post.findUnique({
-      where: { slug: dto.slug },
-    });
-
-    if (existSlug) {
-      throw PostError.SlugAlreadyExists();
-    }
-
-    const post = await this.prismaService.post.create({
-      data: {
-        ...dto,
-        authorId: userId,
-      },
-    });
-    return post;
   }
 
   async updatePost(
@@ -57,63 +35,60 @@ export class PostService {
     dto: EditPostDto,
     role: Role,
   ): Promise<Post> {
-    if (dto.categoryId) {
-      const existPost = await this.prismaService.post.findUnique({
-        where: { slug },
-      });
+    const post = await this.findPostOrFail(slug);
+    this.validateOwnership(post, userId, role);
+    await this.validateUpdateConstraints(dto);
 
-      if (!existPost) {
-        throw PostError.PostNotFound();
-      }
-
-      if (existPost.authorId !== userId && role !== Role.ADMIN) {
-        throw PostError.Forbidden();
-      }
-
-      if (dto.slug) {
-        const existSlug = await this.prismaService.post.findUnique({
-          where: { slug: dto.slug },
-        });
-
-        if (existSlug) {
-          throw PostError.SlugAlreadyExists();
-        }
-      }
-
-      const existCategory = await this.prismaService.category.findUnique({
-        where: { id: dto.categoryId },
-      });
-
-      if (!existCategory) {
-        throw CategoryError.CategoryNotFound();
-      }
-    }
-
-    const post = await this.prismaService.post.update({
+    return this.prismaService.post.update({
       where: { slug },
-      data: {
-        ...dto,
-        authorId: userId,
-      },
+      data: { ...dto, authorId: userId },
     });
-    return post;
   }
 
   async deletePost(userId: number, slug: string, role: Role): Promise<void> {
-    const existPost = await this.prismaService.post.findUnique({
-      where: { slug },
-    });
+    const post = await this.findPostOrFail(slug);
+    this.validateOwnership(post, userId, role);
 
-    if (!existPost) {
-      throw PostError.PostNotFound();
-    }
+    await this.prismaService.post.delete({ where: { slug } });
+  }
 
-    if (existPost.authorId !== userId && role !== Role.ADMIN) {
+  private async findPostOrFail(slug: string): Promise<Post> {
+    const post = await this.prismaService.post.findUnique({ where: { slug } });
+    if (!post) throw PostError.PostNotFound();
+    return post;
+  }
+
+  private validateOwnership(post: Post, userId: number, role: Role): void {
+    if (post.authorId !== userId && role !== Role.ADMIN) {
       throw PostError.Forbidden();
     }
+  }
 
-    this.prismaService.post.delete({
-      where: { slug },
+  private async validateCreateConstraints(dto: CreatePostDto): Promise<void> {
+    const existCategory = await this.prismaService.category.findUnique({
+      where: { id: dto.categoryId },
     });
+    if (!existCategory) throw CategoryError.CategoryNotFound();
+
+    const existSlug = await this.prismaService.post.findUnique({
+      where: { slug: dto.slug },
+    });
+    if (existSlug) throw PostError.SlugAlreadyExists();
+  }
+
+  private async validateUpdateConstraints(dto: EditPostDto): Promise<void> {
+    if (dto.slug) {
+      const existSlug = await this.prismaService.post.findUnique({
+        where: { slug: dto.slug },
+      });
+      if (existSlug) throw PostError.SlugAlreadyExists();
+    }
+
+    if (dto.categoryId) {
+      const existCategory = await this.prismaService.category.findUnique({
+        where: { id: dto.categoryId },
+      });
+      if (!existCategory) throw CategoryError.CategoryNotFound();
+    }
   }
 }

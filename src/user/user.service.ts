@@ -12,44 +12,30 @@ export class UserService {
     userId: number,
     dto: EditUserDto,
   ): Promise<Omit<User, 'hash' | 'refreshToken'>> {
-    const isEmailAvailable = await this.isEmailTaken(dto);
+    const emailTaken = await this.isEmailTaken(dto);
 
-    if (isEmailAvailable) {
+    if (emailTaken) {
       throw UserError.EmailAlreadyTaken();
     }
+
     return this.prisma.user.update({
-      where: {
-        id: userId,
-      },
-      data: {
-        ...dto,
-      },
-      omit: {
-        hash: true,
-        refreshToken: true,
-      },
+      where: { id: userId },
+      data: { ...dto },
+      omit: { hash: true, refreshToken: true },
     });
-  }
-
-  private async isEmailTaken(dto: EditUserDto): Promise<boolean> {
-    const user = await this.prisma.user.findFirst({
-      where: {
-        email: dto.email,
-      },
-    });
-
-    return !!user;
   }
 
   async deleteUser(userId: number): Promise<void> {
-    const deletedUser = await this.prisma.user.delete({
-      where: {
-        id: userId,
-      },
+    await this.prisma.user.delete({ where: { id: userId } });
+  }
+
+  private async isEmailTaken(dto: EditUserDto): Promise<boolean> {
+    if (!dto.email) return false;
+
+    const user = await this.prisma.user.findFirst({
+      where: { email: dto.email },
     });
 
-    if (!deletedUser) {
-      throw UserError.UserNotFound();
-    }
+    return !!user;
   }
 }

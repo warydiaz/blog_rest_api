@@ -14,53 +14,35 @@ export class CategoryService {
   }
 
   async getCategoryBySlug(slug: string): Promise<Category> {
-    const category = await this.prismaService.category.findUnique({
-      where: {
-        slug,
-      },
-    });
-
-    if (!category) {
-      throw CategoryError.CategoryNotFound();
-    }
-
-    return category;
+    return this.findCategoryOrFail(slug);
   }
 
   async createCategory(dto: CategoryDto): Promise<Category> {
-    const category = await this.prismaService.category.create({
-      data: {
-        name: dto.name,
-        slug: dto.slug,
-        description: dto.description,
-      },
-    });
-
-    return category;
+    return this.prismaService.category.create({ data: { ...dto } });
   }
 
   async updateCategory(slug: string, dto: EditCategoryDto): Promise<Category> {
-    const category = await this.prismaService.category.update({
-      where: {
-        slug,
-      },
-      data: {
-        ...dto,
-      },
-    });
+    await this.findCategoryOrFail(slug);
 
-    return category;
+    return this.prismaService.category.update({
+      where: { slug },
+      data: { ...dto },
+    });
   }
 
   async deleteCategory(slug: string): Promise<void> {
-    const deletedCategory = await this.prismaService.category.delete({
-      where: {
-        slug,
-      },
-    });
+    await this.findCategoryOrFail(slug);
 
-    if (!deletedCategory) {
-      throw CategoryError.CategoryNotFound();
-    }
+    await this.prismaService.category.delete({
+      where: { slug },
+    });
+  }
+
+  private async findCategoryOrFail(slug: string): Promise<Category> {
+    const category = await this.prismaService.category.findUnique({
+      where: { slug },
+    });
+    if (!category) throw CategoryError.CategoryNotFound();
+    return category;
   }
 }

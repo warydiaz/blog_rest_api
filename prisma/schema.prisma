@@ -43,8 +43,8 @@ model Follow {
   followingId Int
   createdAt   DateTime @default(now())
 
-  follower  User @relation("following", fields: [followerId],  references: [id])
-  following User @relation("followers", fields: [followingId], references: [id])
+  follower  User @relation("following", fields: [followerId],  references: [id], onDelete: Cascade)
+  following User @relation("followers", fields: [followingId], references: [id], onDelete: Cascade)
 
   @@id([followerId, followingId])
   @@map("follows")
@@ -75,7 +75,7 @@ model Post {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  author   User     @relation(fields: [authorId], references: [id])
+  author   User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
   category Category @relation(fields: [categoryId], references: [id])
 
   @@map("posts")
