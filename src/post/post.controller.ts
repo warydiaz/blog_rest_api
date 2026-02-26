@@ -60,4 +60,28 @@ export class PostController {
   ) {
     return await this.postService.deletePost(userId, slug, role);
   }
+
+  @UseGuards(JwtGuard)
+  @Roles(Role.ADMIN, Role.AUTHOR)
+  @Post(':slug/publish')
+  @HttpCode(HttpStatus.OK)
+  async publishPost(
+    @GetUserId() userId: number,
+    @Param('slug') slug: string,
+    @GetUserRole() role: Role,
+  ) {
+    return await this.postService.publishPost(userId, slug, role);
+  }
+
+  @UseGuards(JwtGuard)
+  @Roles(Role.ADMIN, Role.AUTHOR)
+  @Post(':slug/unpublish')
+  @HttpCode(HttpStatus.OK)
+  async unpublishPost(
+    @GetUserId() userId: number,
+    @Param('slug') slug: string,
+    @GetUserRole() role: Role,
+  ) {
+    return await this.postService.unpublishPost(userId, slug, role);
+  }
 }

@@ -52,6 +52,26 @@ export class PostService {
     await this.prismaService.post.delete({ where: { slug } });
   }
 
+  async publishPost(userId: number, slug: string, role: Role): Promise<Post> {
+    const post = await this.findPostOrFail(slug);
+    this.validateOwnership(post, userId, role);
+
+    return this.prismaService.post.update({
+      where: { slug },
+      data: { published: true },
+    });
+  }
+
+  async unpublishPost(userId: number, slug: string, role: Role): Promise<Post> {
+    const post = await this.findPostOrFail(slug);
+    this.validateOwnership(post, userId, role);
+
+    return this.prismaService.post.update({
+      where: { slug },
+      data: { published: false },
+    });
+  }
+
   private async findPostOrFail(slug: string): Promise<Post> {
     const post = await this.prismaService.post.findUnique({ where: { slug } });
     if (!post) throw PostError.PostNotFound();
