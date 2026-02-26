@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { Post } from '@prisma/client';
+import { Post, Role } from '@prisma/client';
 import { CreatePostDto, EditPostDto } from './dto';
 import { PostError } from './error/post.error';
 import { CategoryError } from 'src/category/error/category.error';
@@ -44,13 +44,7 @@ export class PostService {
 
     const post = await this.prismaService.post.create({
       data: {
-        title: dto.title,
-        slug: dto.slug,
-        content: dto.content,
-        excerpt: dto.excerpt,
-        coverImageUrl: dto.coverImageUrl,
-        published: dto.published,
-        categoryId: dto.categoryId,
+        ...dto,
         authorId: userId,
       },
     });
@@ -61,36 +55,37 @@ export class PostService {
     userId: number,
     slug: string,
     dto: EditPostDto,
+    role: Role,
   ): Promise<Post> {
     if (dto.categoryId) {
+      const existPost = await this.prismaService.post.findUnique({
+        where: { slug },
+      });
+
+      if (!existPost) {
+        throw PostError.PostNotFound();
+      }
+
+      if (existPost.authorId !== userId && role !== Role.ADMIN) {
+        throw PostError.Forbidden();
+      }
+
+      if (dto.slug) {
+        const existSlug = await this.prismaService.post.findUnique({
+          where: { slug: dto.slug },
+        });
+
+        if (existSlug) {
+          throw PostError.SlugAlreadyExists();
+        }
+      }
+
       const existCategory = await this.prismaService.category.findUnique({
         where: { id: dto.categoryId },
       });
 
       if (!existCategory) {
         throw CategoryError.CategoryNotFound();
-      }
-    }
-
-    const existPost = await this.prismaService.post.findUnique({
-      where: { slug },
-    });
-
-    if (!existPost) {
-      throw PostError.PostNotFound();
-    }
-
-    if (existPost.authorId !== userId) {
-      throw PostError.Forbidden();
-    }
-
-    if (dto.slug) {
-      const existSlug = await this.prismaService.post.findUnique({
-        where: { slug: dto.slug },
-      });
-
-      if (existSlug) {
-        throw PostError.SlugAlreadyExists();
       }
     }
 
@@ -102,5 +97,23 @@ export class PostService {
       },
     });
     return post;
+  }
+
+  async deletePost(userId: number, slug: string, role: Role): Promise<void> {
+    const existPost = await this.prismaService.post.findUnique({
+      where: { slug },
+    });
+
+    if (!existPost) {
+      throw PostError.PostNotFound();
+    }
+
+    if (existPost.authorId !== userId && role !== Role.ADMIN) {
+      throw PostError.Forbidden();
+    }
+
+    this.prismaService.post.delete({
+      where: { slug },
+    });
   }
 }
