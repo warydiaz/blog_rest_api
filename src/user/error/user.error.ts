@@ -1,23 +1,15 @@
 import { BaseError } from '../../error';
 
 export class UserError extends BaseError {
-  private constructor(message: string) {
-    super('user-error', message);
+  private constructor(status: number, message: string) {
+    super('user-error', status, message);
   }
 
   static EmailAlreadyTaken() {
-    return new UserError(`Email is already taken`);
-  }
-
-  static InvalidCredentials() {
-    return new UserError(`Invalid credentials`);
+    return new UserError(409, `Email is already taken`);
   }
 
   static UserNotFound() {
-    return new UserError(`User not found`);
-  }
-
-  static UnauthorizedToDeleteUser() {
-    return new UserError(`Unauthorized to delete user`);
+    return new UserError(404, `User not found`);
   }
 }

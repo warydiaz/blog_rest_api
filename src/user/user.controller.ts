@@ -13,7 +13,7 @@ import {
 import { JwtGuard } from '../auth/guard';
 import { UserService } from './user.service';
 import type { User } from 'generated/prisma/client';
-import { GetUser, GetUserId, GetUserRole } from 'src/auth/decorator';
+import { GetUser, GetUserId, Roles } from 'src/auth/decorator';
 import { EditUserDto } from './dto';
 import { Role } from '@prisma/client';
 
@@ -35,10 +35,8 @@ export class UserController {
 
   @HttpCode(HttpStatus.NO_CONTENT)
   @Delete(':id')
-  async deleteUser(
-    @Param('id', ParseIntPipe) userId: number,
-    @GetUserRole() role: Role,
-  ) {
-    return await this.userService.deleteUser(userId, role);
+  @Roles(Role.ADMIN)
+  async deleteUser(@Param('id', ParseIntPipe) userId: number) {
+    return await this.userService.deleteUser(userId);
   }
 }

@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { EditUserDto } from './dto';
 import { UserError } from './error/user.error';
-import { Role, User } from '@prisma/client';
+import { User } from '@prisma/client';
 
 @Injectable()
 export class UserService {
@@ -41,11 +41,7 @@ export class UserService {
     return !!user;
   }
 
-  async deleteUser(userId: number, role: Role): Promise<void> {
-    if (role !== Role.ADMIN) {
-      throw UserError.UnauthorizedToDeleteUser();
-    }
-
+  async deleteUser(userId: number): Promise<void> {
     const deletedUser = await this.prisma.user.delete({
       where: {
         id: userId,

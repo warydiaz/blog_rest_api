@@ -31,6 +31,52 @@ model User {
   avatarUrl    String?
   role         Role
   refreshToken String?
+  posts        Post[]
+  following    Follow[] @relation("following")
+  followers    Follow[] @relation("followers")
 
   @@map("users")
+}
+
+model Follow {
+  followerId  Int
+  followingId Int
+  createdAt   DateTime @default(now())
+
+  follower  User @relation("following", fields: [followerId],  references: [id])
+  following User @relation("followers", fields: [followingId], references: [id])
+
+  @@id([followerId, followingId])
+  @@map("follows")
+}
+
+model Category {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  posts       Post[]
+
+  @@map("categories")
+}
+
+model Post {
+  id            Int      @id @default(autoincrement())
+  title         String
+  slug          String   @unique
+  content       String
+  excerpt       String?
+  coverImageUrl String?
+  published     Boolean  @default(false)
+  authorId      Int
+  categoryId    Int
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  author   User     @relation(fields: [authorId], references: [id])
+  category Category @relation(fields: [categoryId], references: [id])
+
+  @@map("posts")
 }

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { AuthDto, SignupDto } from './dto';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { PrismaService } from '../prisma/prisma.service';
 import * as argon from 'argon2';
 import { AuthError } from './error/auth.error';
 import { Role, User } from '@prisma/client';
