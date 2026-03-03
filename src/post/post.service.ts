@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Post, Role } from '@prisma/client';
-import { CreatePostDto, EditPostDto } from './dto';
+import { CreatePostDto, EditPostDto, EditCoverDto } from './dto';
 import { PostError } from './error/post.error';
-import { CategoryError } from 'src/category/error/category.error';
+import { CategoryError } from '../category/error';
 
 @Injectable()
 export class PostService {
@@ -69,6 +69,21 @@ export class PostService {
     return this.prismaService.post.update({
       where: { slug },
       data: { published: false },
+    });
+  }
+
+  async updateCover(
+    userId: number,
+    slug: string,
+    role: Role,
+    dto: EditCoverDto,
+  ): Promise<Post> {
+    const post = await this.findPostOrFail(slug);
+    this.validateOwnership(post, userId, role);
+
+    return this.prismaService.post.update({
+      where: { slug },
+      data: { coverImageUrl: dto.coverImageUrl },
     });
   }
 

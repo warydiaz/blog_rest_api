@@ -3,6 +3,7 @@ import { PostController } from './post.controller';
 import { PostService } from './post.service';
 import { CreatePostDto, EditPostDto } from './dto';
 import { PostError } from './error/post.error';
+import { EditCoverDto } from './dto/edit-cover.dto';
 import { Role } from '@prisma/client';
 
 describe('PostController', () => {
@@ -17,6 +18,7 @@ describe('PostController', () => {
     deletePost: jest.fn(),
     publishPost: jest.fn(),
     unpublishPost: jest.fn(),
+    updateCover: jest.fn(),
   };
 
   const mockPost = {
@@ -132,9 +134,19 @@ describe('PostController', () => {
       const updatedPost = { ...mockPost, title: 'Updated Title' };
       postService.updatePost.mockResolvedValue(updatedPost);
 
-      const result = await controller.updatePost(userId, 'test-post', dto, Role.AUTHOR);
+      const result = await controller.updatePost(
+        userId,
+        'test-post',
+        dto,
+        Role.AUTHOR,
+      );
 
-      expect(postService.updatePost).toHaveBeenCalledWith(userId, 'test-post', dto, Role.AUTHOR);
+      expect(postService.updatePost).toHaveBeenCalledWith(
+        userId,
+        'test-post',
+        dto,
+        Role.AUTHOR,
+      );
       expect(result).toEqual(updatedPost);
     });
 
@@ -165,7 +177,11 @@ describe('PostController', () => {
 
       await controller.deletePost(userId, 'test-post', Role.AUTHOR);
 
-      expect(postService.deletePost).toHaveBeenCalledWith(userId, 'test-post', Role.AUTHOR);
+      expect(postService.deletePost).toHaveBeenCalledWith(
+        userId,
+        'test-post',
+        Role.AUTHOR,
+      );
       expect(postService.deletePost).toHaveBeenCalledTimes(1);
     });
 
@@ -203,9 +219,17 @@ describe('PostController', () => {
       const publishedPost = { ...mockPost, published: true };
       postService.publishPost.mockResolvedValue(publishedPost);
 
-      const result = await controller.publishPost(userId, 'test-post', Role.AUTHOR);
+      const result = await controller.publishPost(
+        userId,
+        'test-post',
+        Role.AUTHOR,
+      );
 
-      expect(postService.publishPost).toHaveBeenCalledWith(userId, 'test-post', Role.AUTHOR);
+      expect(postService.publishPost).toHaveBeenCalledWith(
+        userId,
+        'test-post',
+        Role.AUTHOR,
+      );
       expect(result).toEqual(publishedPost);
     });
 
@@ -235,9 +259,17 @@ describe('PostController', () => {
       const unpublishedPost = { ...mockPost, published: false };
       postService.unpublishPost.mockResolvedValue(unpublishedPost);
 
-      const result = await controller.unpublishPost(userId, 'test-post', Role.AUTHOR);
+      const result = await controller.unpublishPost(
+        userId,
+        'test-post',
+        Role.AUTHOR,
+      );
 
-      expect(postService.unpublishPost).toHaveBeenCalledWith(userId, 'test-post', Role.AUTHOR);
+      expect(postService.unpublishPost).toHaveBeenCalledWith(
+        userId,
+        'test-post',
+        Role.AUTHOR,
+      );
       expect(result).toEqual(unpublishedPost);
     });
 
@@ -254,6 +286,54 @@ describe('PostController', () => {
 
       await expect(
         controller.unpublishPost(userId, 'test-post', Role.AUTHOR),
+      ).rejects.toThrow(PostError.Forbidden().message);
+    });
+  });
+
+  // ─── updateCover ──────────────────────────────────────────────────────────
+
+  describe('updateCover', () => {
+    const userId = 10;
+    const dto: EditCoverDto = {
+      coverImageUrl: 'https://example.com/cover.jpg',
+    };
+
+    it('should call postService.updateCover with all args and return the updated post', async () => {
+      const updatedPost = {
+        ...mockPost,
+        coverImageUrl: 'https://example.com/cover.jpg',
+      };
+      postService.updateCover.mockResolvedValue(updatedPost);
+
+      const result = await controller.updateCover(
+        userId,
+        'test-post',
+        Role.AUTHOR,
+        dto,
+      );
+
+      expect(postService.updateCover).toHaveBeenCalledWith(
+        userId,
+        'test-post',
+        Role.AUTHOR,
+        dto,
+      );
+      expect(result).toEqual(updatedPost);
+    });
+
+    it('should propagate PostError.PostNotFound when post does not exist', async () => {
+      postService.updateCover.mockRejectedValue(PostError.PostNotFound());
+
+      await expect(
+        controller.updateCover(userId, 'non-existent', Role.AUTHOR, dto),
+      ).rejects.toThrow(PostError.PostNotFound().message);
+    });
+
+    it('should propagate PostError.Forbidden when user is not the owner', async () => {
+      postService.updateCover.mockRejectedValue(PostError.Forbidden());
+
+      await expect(
+        controller.updateCover(userId, 'test-post', Role.AUTHOR, dto),
       ).rejects.toThrow(PostError.Forbidden().message);
     });
   });

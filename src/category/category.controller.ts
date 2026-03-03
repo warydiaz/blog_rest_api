@@ -12,8 +12,7 @@ import { JwtGuard, RolesGuard } from '../auth/guard';
 import { Roles } from '../auth/decorator';
 import { CategoryService } from './category.service';
 import { Role } from '@prisma/client';
-import { CategoryDto } from './dto';
-import { EditCategoryDto } from './dto/edit-category.dto';
+import { CategoryDto, EditCategoryDto } from './dto';
 
 @UseGuards(JwtGuard, RolesGuard)
 @Controller('categories')

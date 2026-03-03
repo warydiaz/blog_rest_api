@@ -4,6 +4,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { CreatePostDto, EditPostDto } from './dto';
 import { PostError } from './error/post.error';
 import { CategoryError } from 'src/category/error/category.error';
+import { EditCoverDto } from './dto/edit-cover.dto';
 import { Role } from '@prisma/client';
 
 describe('PostService', () => {
@@ -152,7 +153,12 @@ describe('PostService', () => {
       mockPrismaService.post.findUnique.mockResolvedValue(mockPost);
       mockPrismaService.post.update.mockResolvedValue(updatedPost);
 
-      const result = await service.updatePost(userId, 'test-post', dto, Role.AUTHOR);
+      const result = await service.updatePost(
+        userId,
+        'test-post',
+        dto,
+        Role.AUTHOR,
+      );
 
       expect(mockPrismaService.post.update).toHaveBeenCalledWith({
         where: { slug: 'test-post' },
@@ -167,7 +173,12 @@ describe('PostService', () => {
       mockPrismaService.post.findUnique.mockResolvedValue(mockPost);
       mockPrismaService.post.update.mockResolvedValue(updatedPost);
 
-      const result = await service.updatePost(adminId, 'test-post', dto, Role.ADMIN);
+      const result = await service.updatePost(
+        adminId,
+        'test-post',
+        dto,
+        Role.ADMIN,
+      );
 
       expect(mockPrismaService.post.update).toHaveBeenCalled();
       expect(result).toEqual(updatedPost);
@@ -267,7 +278,11 @@ describe('PostService', () => {
       mockPrismaService.post.findUnique.mockResolvedValue(mockPost);
       mockPrismaService.post.update.mockResolvedValue(publishedPost);
 
-      const result = await service.publishPost(userId, 'test-post', Role.AUTHOR);
+      const result = await service.publishPost(
+        userId,
+        'test-post',
+        Role.AUTHOR,
+      );
 
       expect(mockPrismaService.post.update).toHaveBeenCalledWith({
         where: { slug: 'test-post' },
@@ -282,7 +297,11 @@ describe('PostService', () => {
       mockPrismaService.post.findUnique.mockResolvedValue(mockPost);
       mockPrismaService.post.update.mockResolvedValue(publishedPost);
 
-      const result = await service.publishPost(adminId, 'test-post', Role.ADMIN);
+      const result = await service.publishPost(
+        adminId,
+        'test-post',
+        Role.ADMIN,
+      );
 
       expect(result).toEqual(publishedPost);
     });
@@ -316,7 +335,11 @@ describe('PostService', () => {
       mockPrismaService.post.findUnique.mockResolvedValue(publishedMockPost);
       mockPrismaService.post.update.mockResolvedValue(unpublishedPost);
 
-      const result = await service.unpublishPost(userId, 'test-post', Role.AUTHOR);
+      const result = await service.unpublishPost(
+        userId,
+        'test-post',
+        Role.AUTHOR,
+      );
 
       expect(mockPrismaService.post.update).toHaveBeenCalledWith({
         where: { slug: 'test-post' },
@@ -331,7 +354,11 @@ describe('PostService', () => {
       mockPrismaService.post.findUnique.mockResolvedValue(publishedMockPost);
       mockPrismaService.post.update.mockResolvedValue(unpublishedPost);
 
-      const result = await service.unpublishPost(adminId, 'test-post', Role.ADMIN);
+      const result = await service.unpublishPost(
+        adminId,
+        'test-post',
+        Role.ADMIN,
+      );
 
       expect(result).toEqual(unpublishedPost);
     });
@@ -350,6 +377,68 @@ describe('PostService', () => {
 
       await expect(
         service.unpublishPost(otherUserId, 'test-post', Role.AUTHOR),
+      ).rejects.toThrow(PostError.Forbidden().message);
+    });
+  });
+
+  // ─── updateCover ──────────────────────────────────────────────────────────
+
+  describe('updateCover', () => {
+    const userId = 10;
+    const dto: EditCoverDto = {
+      coverImageUrl: 'https://example.com/cover.jpg',
+    };
+
+    it('should update and return the post with the new cover when owner calls it', async () => {
+      const updatedPost = { ...mockPost, coverImageUrl: dto.coverImageUrl };
+      mockPrismaService.post.findUnique.mockResolvedValue(mockPost);
+      mockPrismaService.post.update.mockResolvedValue(updatedPost);
+
+      const result = await service.updateCover(
+        userId,
+        'test-post',
+        Role.AUTHOR,
+        dto,
+      );
+
+      expect(mockPrismaService.post.update).toHaveBeenCalledWith({
+        where: { slug: 'test-post' },
+        data: { coverImageUrl: dto.coverImageUrl },
+      });
+      expect(result).toEqual(updatedPost);
+    });
+
+    it('should allow ADMIN to update the cover of any post', async () => {
+      const adminId = 99;
+      const updatedPost = { ...mockPost, coverImageUrl: dto.coverImageUrl };
+      mockPrismaService.post.findUnique.mockResolvedValue(mockPost);
+      mockPrismaService.post.update.mockResolvedValue(updatedPost);
+
+      const result = await service.updateCover(
+        adminId,
+        'test-post',
+        Role.ADMIN,
+        dto,
+      );
+
+      expect(mockPrismaService.post.update).toHaveBeenCalled();
+      expect(result).toEqual(updatedPost);
+    });
+
+    it('should throw PostError.PostNotFound when post does not exist', async () => {
+      mockPrismaService.post.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.updateCover(userId, 'non-existent', Role.AUTHOR, dto),
+      ).rejects.toThrow(PostError.PostNotFound().message);
+    });
+
+    it('should throw PostError.Forbidden when non-owner AUTHOR tries to update cover', async () => {
+      const otherUserId = 99;
+      mockPrismaService.post.findUnique.mockResolvedValue(mockPost);
+
+      await expect(
+        service.updateCover(otherUserId, 'test-post', Role.AUTHOR, dto),
       ).rejects.toThrow(PostError.Forbidden().message);
     });
   });

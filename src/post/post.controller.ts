@@ -14,7 +14,7 @@ import { PostService } from './post.service';
 import { JwtGuard } from 'src/auth/guard/jwt.guard';
 import { GetUserId, GetUserRole, Roles } from 'src/auth/decorator';
 import { Role } from '@prisma/client';
-import { CreatePostDto, EditPostDto } from './dto';
+import { CreatePostDto, EditPostDto, EditCoverDto } from './dto';
 
 @Controller('posts')
 export class PostController {
@@ -83,5 +83,18 @@ export class PostController {
     @GetUserRole() role: Role,
   ) {
     return await this.postService.unpublishPost(userId, slug, role);
+  }
+
+  @UseGuards(JwtGuard)
+  @Roles(Role.ADMIN, Role.AUTHOR)
+  @Post(':slug/cover')
+  @HttpCode(HttpStatus.OK)
+  async updateCover(
+    @GetUserId() userId: number,
+    @Param('slug') slug: string,
+    @GetUserRole() role: Role,
+    @Body() dto: EditCoverDto,
+  ) {
+    return await this.postService.updateCover(userId, slug, role, dto);
   }
 }
