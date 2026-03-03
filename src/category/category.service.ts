@@ -17,6 +17,7 @@ export class CategoryService {
   }
 
   async createCategory(dto: CategoryDto): Promise<Category> {
+    await this.validateUniqueSlug(dto.slug);
     return this.prismaService.category.create({ data: { ...dto } });
   }
 
@@ -43,5 +44,12 @@ export class CategoryService {
     });
     if (!category) throw CategoryError.CategoryNotFound();
     return category;
+  }
+
+  private async validateUniqueSlug(slug: string): Promise<void> {
+    const category = await this.prismaService.category.findUnique({
+      where: { slug },
+    });
+    if (category) throw CategoryError.SlugAlreadyExists();
   }
 }

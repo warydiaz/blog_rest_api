@@ -8,4 +8,8 @@ export class CategoryError extends BaseError {
   static CategoryNotFound() {
     return new CategoryError(404, `Category not found`);
   }
+
+  static SlugAlreadyExists() {
+    return new CategoryError(400, `Slug already exists`);
+  }
 }
