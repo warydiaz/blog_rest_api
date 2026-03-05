@@ -1,4 +1,11 @@
-import { IsBoolean, IsNumber, IsOptional, IsString } from 'class-validator';
+import {
+  IsArray,
+  IsBoolean,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 
 export class EditPostDto {
   @IsOptional()
@@ -22,4 +29,8 @@ export class EditPostDto {
   @IsOptional()
   @IsNumber()
   categoryId?: number;
+  @IsOptional()
+  @IsArray()
+  @IsInt({ each: true })
+  tagIds?: number[];
 }

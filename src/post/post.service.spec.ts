@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { PostService } from './post.service';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { CategoryService } from 'src/category/category.service';
 import { CreatePostDto, EditPostDto } from './dto';
 import { PostError } from './error/post.error';
 import { CategoryError } from 'src/category/error/category.error';
@@ -9,7 +10,6 @@ import { Role } from '@prisma/client';
 
 describe('PostService', () => {
   let service: PostService;
-  let prisma: jest.Mocked<PrismaService>;
 
   const mockPrismaService = {
     post: {
@@ -19,9 +19,10 @@ describe('PostService', () => {
       update: jest.fn(),
       delete: jest.fn(),
     },
-    category: {
-      findUnique: jest.fn(),
-    },
+  };
+
+  const mockCategoryService = {
+    getCategoryByIdOrFail: jest.fn(),
   };
 
   const mockPost = {
@@ -45,11 +46,11 @@ describe('PostService', () => {
       providers: [
         PostService,
         { provide: PrismaService, useValue: mockPrismaService },
+        { provide: CategoryService, useValue: mockCategoryService },
       ],
     }).compile();
 
     service = module.get<PostService>(PostService);
-    prisma = module.get(PrismaService);
   });
 
   afterEach(() => {
@@ -110,20 +111,48 @@ describe('PostService', () => {
     };
 
     it('should create and return the post', async () => {
-      mockPrismaService.category.findUnique.mockResolvedValue(mockCategory);
+      mockCategoryService.getCategoryByIdOrFail.mockResolvedValue(mockCategory);
       mockPrismaService.post.findUnique.mockResolvedValue(null);
       mockPrismaService.post.create.mockResolvedValue(mockPost);
 
       const result = await service.createPost(userId, dto);
 
       expect(mockPrismaService.post.create).toHaveBeenCalledWith({
-        data: { ...dto, authorId: userId },
+        data: {
+          title: dto.title,
+          slug: dto.slug,
+          content: dto.content,
+          categoryId: dto.categoryId,
+          authorId: userId,
+        },
       });
       expect(result).toEqual(mockPost);
     });
 
+    it('should create the post with connected tags when tagIds are provided', async () => {
+      const dtoWithTags: CreatePostDto = { ...dto, tagIds: [1, 2] };
+      mockCategoryService.getCategoryByIdOrFail.mockResolvedValue(mockCategory);
+      mockPrismaService.post.findUnique.mockResolvedValue(null);
+      mockPrismaService.post.create.mockResolvedValue(mockPost);
+
+      await service.createPost(userId, dtoWithTags);
+
+      expect(mockPrismaService.post.create).toHaveBeenCalledWith({
+        data: {
+          title: dto.title,
+          slug: dto.slug,
+          content: dto.content,
+          categoryId: dto.categoryId,
+          authorId: userId,
+          tags: { connect: [{ id: 1 }, { id: 2 }] },
+        },
+      });
+    });
+
     it('should throw CategoryError.CategoryNotFound when category does not exist', async () => {
-      mockPrismaService.category.findUnique.mockResolvedValue(null);
+      mockCategoryService.getCategoryByIdOrFail.mockRejectedValue(
+        CategoryError.CategoryNotFound(),
+      );
 
       await expect(service.createPost(userId, dto)).rejects.toThrow(
         CategoryError.CategoryNotFound().message,
@@ -132,7 +161,7 @@ describe('PostService', () => {
     });
 
     it('should throw PostError.SlugAlreadyExists when slug is taken', async () => {
-      mockPrismaService.category.findUnique.mockResolvedValue(mockCategory);
+      mockCategoryService.getCategoryByIdOrFail.mockResolvedValue(mockCategory);
       mockPrismaService.post.findUnique.mockResolvedValue(mockPost);
 
       await expect(service.createPost(userId, dto)).rejects.toThrow(
@@ -162,9 +191,23 @@ describe('PostService', () => {
 
       expect(mockPrismaService.post.update).toHaveBeenCalledWith({
         where: { slug: 'test-post' },
-        data: { ...dto, authorId: userId },
+        data: { title: 'Updated Title' },
       });
       expect(result).toEqual(updatedPost);
+    });
+
+    it('should update the post with replaced tags when tagIds are provided', async () => {
+      const dtoWithTags: EditPostDto = { tagIds: [3] };
+      const updatedPost = { ...mockPost };
+      mockPrismaService.post.findUnique.mockResolvedValue(mockPost);
+      mockPrismaService.post.update.mockResolvedValue(updatedPost);
+
+      await service.updatePost(userId, 'test-post', dtoWithTags, Role.AUTHOR);
+
+      expect(mockPrismaService.post.update).toHaveBeenCalledWith({
+        where: { slug: 'test-post' },
+        data: { tags: { set: [{ id: 3 }] } },
+      });
     });
 
     it('should allow ADMIN to update any post', async () => {
@@ -216,7 +259,9 @@ describe('PostService', () => {
     it('should throw CategoryError.CategoryNotFound when new categoryId does not exist', async () => {
       const dtoWithCategory: EditPostDto = { categoryId: 99 };
       mockPrismaService.post.findUnique.mockResolvedValue(mockPost);
-      mockPrismaService.category.findUnique.mockResolvedValue(null);
+      mockCategoryService.getCategoryByIdOrFail.mockRejectedValue(
+        CategoryError.CategoryNotFound(),
+      );
 
       await expect(
         service.updatePost(userId, 'test-post', dtoWithCategory, Role.AUTHOR),

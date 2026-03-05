@@ -19,22 +19,22 @@ enum Role {
 }
 
 model User {
-  id           Int       @id @default(autoincrement())
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  email        String    @unique
-  username     String    @unique
-  hash         String
-  firstName    String?
-  lastName     String?
-  bio          String?
-  avatarUrl    String?
-  role         Role
-  refreshToken String?
-  posts        Post[]
-  following    Follow[]  @relation("following")
-  followers    Follow[]  @relation("followers")
-  comments     Comment[]
+  id            Int       @id @default(autoincrement())
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  email         String    @unique
+  username      String    @unique
+  hash          String
+  firstName     String?
+  lastName      String?
+  bio           String?
+  avatarUrl     String?
+  role          Role
+  refreshToken  String?
+  posts         Post[]
+  following     Follow[]  @relation("following")
+  followers     Follow[]  @relation("followers")
+  comments      Comment[]
   likedPosts    Post[]    @relation("PostLikes")
   likedComments Comment[] @relation("CommentLikes")
 
@@ -80,6 +80,7 @@ model Post {
 
   author   User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
   likedBy  User[]    @relation("PostLikes")
+  tags     Tag[]     @relation("PostTags")
   category Category  @relation(fields: [categoryId], references: [id])
   comments Comment[]
 
@@ -102,4 +103,14 @@ model Comment {
   likedBy  User[]    @relation("CommentLikes")
 
   @@map("comments")
+}
+
+model Tag {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  posts     Post[]   @relation("PostTags")
+
+  @@map("tags")
 }

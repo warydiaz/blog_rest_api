@@ -3,11 +3,14 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { Post, Role } from '@prisma/client';
 import { CreatePostDto, EditPostDto, EditCoverDto } from './dto';
 import { PostError } from './error/post.error';
-import { CategoryError } from '../category/error';
+import { CategoryService } from '../category/category.service';
 
 @Injectable()
 export class PostService {
-  constructor(private prismaService: PrismaService) {}
+  constructor(
+    private prismaService: PrismaService,
+    private categoryService: CategoryService,
+  ) {}
 
   async getAllPosts(): Promise<Post[]> {
     const posts = await this.prismaService.post.findMany({
@@ -24,8 +27,16 @@ export class PostService {
   async createPost(userId: number, dto: CreatePostDto): Promise<Post> {
     await this.validateCreateConstraints(dto);
 
+    const { tagIds, ...postData } = dto;
+
     return this.prismaService.post.create({
-      data: { ...dto, authorId: userId },
+      data: {
+        ...postData,
+        authorId: userId,
+        tags: tagIds?.length
+          ? { connect: tagIds.map((id) => ({ id })) }
+          : undefined,
+      },
     });
   }
 
@@ -39,9 +50,17 @@ export class PostService {
     this.validateOwnership(post, userId, role);
     await this.validateUpdateConstraints(dto);
 
+    const { tagIds, ...postData } = dto;
+
     return this.prismaService.post.update({
       where: { slug },
-      data: { ...dto, authorId: userId },
+      data: {
+        ...postData,
+        tags:
+          tagIds !== undefined
+            ? { set: tagIds.map((id) => ({ id })) }
+            : undefined,
+      },
     });
   }
 
@@ -87,6 +106,15 @@ export class PostService {
     });
   }
 
+  async getPublishedPostsByTagId(tagId: number): Promise<Post[]> {
+    return this.prismaService.post.findMany({
+      where: {
+        tags: { some: { id: tagId } },
+        published: true,
+      },
+    });
+  }
+
   private async findPostOrFail(slug: string): Promise<Post> {
     const post = await this.prismaService.post.findUnique({ where: { slug } });
     if (!post) throw PostError.PostNotFound();
@@ -100,10 +128,7 @@ export class PostService {
   }
 
   private async validateCreateConstraints(dto: CreatePostDto): Promise<void> {
-    const existCategory = await this.prismaService.category.findUnique({
-      where: { id: dto.categoryId },
-    });
-    if (!existCategory) throw CategoryError.CategoryNotFound();
+    await this.categoryService.getCategoryByIdOrFail(dto.categoryId);
 
     const existSlug = await this.prismaService.post.findUnique({
       where: { slug: dto.slug },
@@ -120,10 +145,7 @@ export class PostService {
     }
 
     if (dto.categoryId) {
-      const existCategory = await this.prismaService.category.findUnique({
-        where: { id: dto.categoryId },
-      });
-      if (!existCategory) throw CategoryError.CategoryNotFound();
+      await this.categoryService.getCategoryByIdOrFail(dto.categoryId);
     }
   }
 }

@@ -38,6 +38,14 @@ export class CategoryService {
     });
   }
 
+  async getCategoryByIdOrFail(id: number): Promise<Category> {
+    const category = await this.prismaService.category.findUnique({
+      where: { id },
+    });
+    if (!category) throw CategoryError.CategoryNotFound();
+    return category;
+  }
+
   private async findCategoryOrFail(slug: string): Promise<Category> {
     const category = await this.prismaService.category.findUnique({
       where: { slug },

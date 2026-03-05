@@ -122,6 +122,15 @@ describe('PostController', () => {
         PostError.SlugAlreadyExists().message,
       );
     });
+
+    it('should pass tagIds to postService.createPost', async () => {
+      const dtoWithTags: CreatePostDto = { ...dto, tagIds: [1, 2] };
+      postService.createPost.mockResolvedValue(mockPost);
+
+      await controller.createPost(userId, dtoWithTags);
+
+      expect(postService.createPost).toHaveBeenCalledWith(userId, dtoWithTags);
+    });
   });
 
   // ─── updatePost ───────────────────────────────────────────────────────────
@@ -164,6 +173,21 @@ describe('PostController', () => {
       await expect(
         controller.updatePost(userId, 'test-post', dto, Role.AUTHOR),
       ).rejects.toThrow(PostError.Forbidden().message);
+    });
+
+    it('should pass tagIds to postService.updatePost', async () => {
+      const dtoWithTags: EditPostDto = { tagIds: [3] };
+      const updatedPost = { ...mockPost };
+      postService.updatePost.mockResolvedValue(updatedPost);
+
+      await controller.updatePost(userId, 'test-post', dtoWithTags, Role.AUTHOR);
+
+      expect(postService.updatePost).toHaveBeenCalledWith(
+        userId,
+        'test-post',
+        dtoWithTags,
+        Role.AUTHOR,
+      );
     });
   });
 
