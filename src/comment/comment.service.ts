@@ -4,6 +4,7 @@ import { PostService } from '../post/post.service';
 import { CommentError } from './error';
 import { EditCommentDto, CreateCommentDto } from './dto';
 import { Comment } from '@prisma/client';
+import { PostError } from '../post/error';
 
 @Injectable()
 export class CommentService {
@@ -62,5 +63,24 @@ export class CommentService {
     if (comment.authorId !== userId) throw CommentError.Forbidden();
 
     await this.prismaService.comment.delete({ where: { id } });
+  }
+
+  async likeComment(slug: string, id: number, userId: number): Promise<void> {
+    const post = await this.prismaService.post.findUnique({ where: { slug } });
+    if (!post) throw PostError.PostNotFound();
+
+    const comment = await this.findCommentOrFail(id);
+    await this.prismaService.comment.update({
+      where: { id: comment.id },
+      data: { likedBy: { connect: { id: userId } } },
+    });
+  }
+
+  async unlikeComment(slug: string, id: number, userId: number): Promise<void> {
+    const comment = await this.findCommentOrFail(id);
+    await this.prismaService.comment.update({
+      where: { id: comment.id },
+      data: { likedBy: { disconnect: { id: userId } } },
+    });
   }
 }

@@ -52,4 +52,24 @@ export class CommentController {
   ) {
     return await this.commentService.deleteComment(id, userId);
   }
+
+  @UseGuards(JwtGuard)
+  @Post(':id/like')
+  async likeComment(
+    @Param('id', ParseIntPipe) id: number,
+    @GetUserId() userId: number,
+    @Param('slug') slug: string,
+  ) {
+    return await this.commentService.likeComment(slug, id, userId);
+  }
+
+  @UseGuards(JwtGuard)
+  @Delete(':id/like')
+  async unlikeComment(
+    @Param('id', ParseIntPipe) id: number,
+    @GetUserId() userId: number,
+    @Param('slug') slug: string,
+  ) {
+    return await this.commentService.unlikeComment(slug, id, userId);
+  }
 }
