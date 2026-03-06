@@ -31,6 +31,7 @@ export class JwtRefreshStrategy extends PassportStrategy(
       'Bearer ',
       '',
     );
+
     const user = await this.prisma.user.findUnique({
       where: {
         id: payload.sub,
@@ -40,7 +41,7 @@ export class JwtRefreshStrategy extends PassportStrategy(
       },
     });
 
-    if (!user) {
+    if (!user?.refreshToken) {
       throw AuthError.InvalidCredentials();
     }
 
