@@ -1,13 +1,15 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { TokenService } from './token.service';
 import { AuthDto, SignupDto } from './dto';
 import { AuthError } from './error/auth.error';
-import { Role } from '@prisma/client';
+import { Role, User } from '@prisma/client';
 
 describe('AuthController', () => {
   let controller: AuthController;
   let authService: jest.Mocked<AuthService>;
+  let tokenService: jest.Mocked<TokenService>;
 
   const mockAuthService: jest.Mocked<Partial<AuthService>> = {
     signup: jest.fn(),
@@ -15,14 +17,37 @@ describe('AuthController', () => {
     logout: jest.fn(),
   };
 
+  const mockTokenService: jest.Mocked<Partial<TokenService>> = {
+    signTokens: jest.fn(),
+  };
+
+  const mockUser: User = {
+    id: 1,
+    email: 'john@example.com',
+    username: 'johndoe',
+    firstName: 'John',
+    lastName: 'Doe',
+    bio: null,
+    avatarUrl: null,
+    role: Role.READER,
+    hash: 'hashedpassword',
+    refreshToken: 'hashedrefreshtoken',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AuthController],
-      providers: [{ provide: AuthService, useValue: mockAuthService }],
+      providers: [
+        { provide: AuthService, useValue: mockAuthService },
+        { provide: TokenService, useValue: mockTokenService },
+      ],
     }).compile();
 
     controller = module.get<AuthController>(AuthController);
     authService = module.get(AuthService);
+    tokenService = module.get(TokenService);
   });
 
   afterEach(() => {
@@ -92,7 +117,10 @@ describe('AuthController', () => {
       password: 'secret123',
     };
 
-    const tokenResponse = { access_token: 'jwt.token.here' };
+    const tokenResponse = {
+      access_token: 'access.token.here',
+      refresh_token: 'refresh.token.here',
+    };
 
     it('should call authService.login with the provided dto', async () => {
       authService.login.mockResolvedValue(tokenResponse);
@@ -103,7 +131,7 @@ describe('AuthController', () => {
       expect(authService.login).toHaveBeenCalledTimes(1);
     });
 
-    it('should return the access token returned by the service', async () => {
+    it('should return both tokens returned by the service', async () => {
       authService.login.mockResolvedValue(tokenResponse);
 
       const result = await controller.login(authDto);
@@ -120,29 +148,54 @@ describe('AuthController', () => {
     });
   });
 
+  // ─── refresh ──────────────────────────────────────────────────────────────
+
+  describe('refresh', () => {
+    const tokenResponse = {
+      access_token: 'new.access.token.here',
+      refresh_token: 'new.refresh.token.here',
+    };
+
+    it('should call tokenService.signTokens with user data', async () => {
+      tokenService.signTokens.mockResolvedValue(tokenResponse);
+
+      await controller.refresh(mockUser);
+
+      expect(tokenService.signTokens).toHaveBeenCalledWith(
+        mockUser.id,
+        mockUser.email,
+        mockUser.role,
+      );
+      expect(tokenService.signTokens).toHaveBeenCalledTimes(1);
+    });
+
+    it('should return both new tokens', async () => {
+      tokenService.signTokens.mockResolvedValue(tokenResponse);
+
+      const result = await controller.refresh(mockUser);
+
+      expect(result).toEqual(tokenResponse);
+    });
+  });
+
   // ─── logout ───────────────────────────────────────────────────────────────
 
   describe('logout', () => {
-    const authDto: AuthDto = {
-      email: 'john@example.com',
-      password: 'secret123',
-    };
+    it('should call authService.logout with the authenticated user', async () => {
+      authService.logout.mockResolvedValue(mockUser);
 
-    it('should call authService.logout with the provided dto', () => {
-      authService.logout.mockReturnValue('logout');
+      await controller.logout(mockUser);
 
-      controller.logout(authDto);
-
-      expect(authService.logout).toHaveBeenCalledWith(authDto);
+      expect(authService.logout).toHaveBeenCalledWith(mockUser);
       expect(authService.logout).toHaveBeenCalledTimes(1);
     });
 
-    it('should return the value returned by the service', () => {
-      authService.logout.mockReturnValue('logout');
+    it('should return the value returned by the service', async () => {
+      authService.logout.mockResolvedValue(mockUser);
 
-      const result = controller.logout(authDto);
+      const result = await controller.logout(mockUser);
 
-      expect(result).toBe('logout');
+      expect(result).toEqual(mockUser);
     });
   });
 });

@@ -3,16 +3,14 @@ import { AuthDto, SignupDto } from './dto';
 import { PrismaService } from '../prisma/prisma.service';
 import * as argon from 'argon2';
 import { AuthError } from './error/auth.error';
-import { Role, User } from '@prisma/client';
-import { ConfigService } from '@nestjs/config';
-import { JwtService } from '@nestjs/jwt';
+import { User } from '@prisma/client';
+import { TokenService } from './token.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     private prisma: PrismaService,
-    private jwtService: JwtService,
-    private configService: ConfigService,
+    private tokenService: TokenService,
   ) {}
 
   async signup(
@@ -67,45 +65,34 @@ export class AuthService {
     return !!user;
   }
 
-  public async login(authDto: AuthDto): Promise<{ access_token: string }> {
-    const { email, password } = authDto;
-
-    const user = await this.prisma.user.findUnique({
-      where: {
-        email,
-      },
-    });
+  private async findUserByEmailOrThrow(email: string) {
+    const user = await this.prisma.user.findUnique({ where: { email } });
 
     if (!user) {
       throw AuthError.InvalidCredentials();
     }
+
+    return user;
+  }
+
+  public async login(authDto: AuthDto) {
+    const { email, password } = authDto;
+
+    const user = await this.findUserByEmailOrThrow(email);
 
     const passwordMatches = await argon.verify(user.hash, password);
 
     if (!passwordMatches) {
       throw AuthError.InvalidCredentials();
     }
-    return await this.sgnToken(user.id, user.email, user.role);
+
+    return this.tokenService.signTokens(user.id, user.email, user.role);
   }
 
-  private async sgnToken(userId: number, email: string, role: Role) {
-    const payload = {
-      sub: userId,
-      email,
-      role,
-    };
-
-    const secret = this.configService.get('JWT_SECRET');
-
-    const token = await this.jwtService.signAsync(payload, {
-      expiresIn: '15m',
-      secret,
+  public logout(user: User) {
+    return this.prisma.user.update({
+      where: { id: user.id },
+      data: { refreshToken: null },
     });
-
-    return { access_token: token };
-  }
-
-  public logout(authDto: AuthDto) {
-    return 'logout';
   }
 }
