@@ -5,9 +5,10 @@ import { AuthService } from './auth.service';
 import { TokenService } from './token.service';
 import { JwtStrategy } from './strategy';
 import { JwtRefreshStrategy } from './strategy/jwt-refresh.strategy';
+import { UserModule } from '../user/user.module';
 
 @Module({
-  imports: [JwtModule.register({})],
+  imports: [JwtModule.register({}), UserModule],
   controllers: [AuthController],
   providers: [AuthService, TokenService, JwtStrategy, JwtRefreshStrategy],
 })

@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthService } from './auth.service';
-import { PrismaService } from '../prisma/prisma.service';
+import { USER_REPOSITORY } from '../user/repository/user.repository.interface';
 import { TokenService } from './token.service';
-import { AuthDto, SignupDto } from './dto';
+import { AuthDto } from './dto';
 import { AuthError } from './error/auth.error';
 import { Role, User } from '@prisma/client';
 import * as argon from 'argon2';
@@ -11,16 +11,13 @@ jest.mock('argon2');
 
 describe('AuthService', () => {
   let service: AuthService;
-  let prisma: jest.Mocked<PrismaService>;
   let tokenService: jest.Mocked<TokenService>;
 
-  const mockPrismaService = {
-    user: {
-      findFirst: jest.fn(),
-      findUnique: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-    },
+  const mockUserRepository = {
+    findByEmail: jest.fn(),
+    findByEmailOrUsername: jest.fn(),
+    create: jest.fn(),
+    updateRefreshToken: jest.fn(),
   };
 
   const mockTokenService = {
@@ -46,13 +43,12 @@ describe('AuthService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
-        { provide: PrismaService, useValue: mockPrismaService },
+        { provide: USER_REPOSITORY, useValue: mockUserRepository },
         { provide: TokenService, useValue: mockTokenService },
       ],
     }).compile();
 
     service = module.get<AuthService>(AuthService);
-    prisma = module.get(PrismaService);
     tokenService = module.get(TokenService);
   });
 
@@ -78,7 +74,7 @@ describe('AuthService', () => {
     };
 
     it('should return tokens when credentials are valid', async () => {
-      prisma.user.findUnique.mockResolvedValue(mockUser);
+      mockUserRepository.findByEmail.mockResolvedValue(mockUser);
       (argon.verify as jest.Mock).mockResolvedValue(true);
       tokenService.signTokens.mockResolvedValue(tokenResponse);
 
@@ -93,7 +89,7 @@ describe('AuthService', () => {
     });
 
     it('should throw InvalidCredentials when user is not found', async () => {
-      prisma.user.findUnique.mockResolvedValue(null);
+      mockUserRepository.findByEmail.mockResolvedValue(null);
 
       await expect(service.login(authDto)).rejects.toThrow(
         AuthError.InvalidCredentials().message,
@@ -101,7 +97,7 @@ describe('AuthService', () => {
     });
 
     it('should throw InvalidCredentials when password does not match', async () => {
-      prisma.user.findUnique.mockResolvedValue(mockUser);
+      mockUserRepository.findByEmail.mockResolvedValue(mockUser);
       (argon.verify as jest.Mock).mockResolvedValue(false);
 
       await expect(service.login(authDto)).rejects.toThrow(
@@ -114,23 +110,20 @@ describe('AuthService', () => {
 
   describe('logout', () => {
     it('should clear refreshToken in DB', async () => {
-      prisma.user.update.mockResolvedValue({ ...mockUser, refreshToken: null });
+      mockUserRepository.updateRefreshToken.mockResolvedValue(undefined);
 
       await service.logout(mockUser);
 
-      expect(prisma.user.update).toHaveBeenCalledWith({
-        where: { id: mockUser.id },
-        data: { refreshToken: null },
-      });
+      expect(mockUserRepository.updateRefreshToken).toHaveBeenCalledWith(
+        mockUser.id,
+        null,
+      );
     });
 
-    it('should return the updated user', async () => {
-      const updatedUser = { ...mockUser, refreshToken: null };
-      prisma.user.update.mockResolvedValue(updatedUser);
+    it('should resolve without returning a value', async () => {
+      mockUserRepository.updateRefreshToken.mockResolvedValue(undefined);
 
-      const result = await service.logout(mockUser);
-
-      expect(result).toEqual(updatedUser);
+      await expect(service.logout(mockUser)).resolves.toBeUndefined();
     });
   });
 });

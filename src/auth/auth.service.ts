@@ -1,15 +1,16 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { AuthDto, SignupDto } from './dto';
-import { PrismaService } from '../prisma/prisma.service';
 import * as argon from 'argon2';
 import { AuthError } from './error/auth.error';
 import { User } from '@prisma/client';
 import { TokenService } from './token.service';
+import type { IUserRepository } from '../user/repository/user.repository.interface';
+import { USER_REPOSITORY } from '../user/repository/user.repository.interface';
 
 @Injectable()
 export class AuthService {
   constructor(
-    private prisma: PrismaService,
+    @Inject(USER_REPOSITORY) private userRepository: IUserRepository,
     private tokenService: TokenService,
   ) {}
 
@@ -35,38 +36,28 @@ export class AuthService {
 
     const hash = await argon.hash(password);
 
-    const user = await this.prisma.user.create({
-      data: {
-        email,
-        username,
-        hash,
-        firstName,
-        lastName,
-        bio,
-        avatarUrl,
-        role,
-      },
-      omit: {
-        hash: true,
-        refreshToken: true,
-      },
+    return this.userRepository.create({
+      email,
+      username,
+      hash,
+      firstName,
+      lastName,
+      bio,
+      avatarUrl,
+      role,
     });
-
-    return user;
   }
 
   private async isEmailOrUsernameTaken(dto: SignupDto): Promise<boolean> {
-    const user = await this.prisma.user.findFirst({
-      where: {
-        OR: [{ email: dto.email }, { username: dto.username }],
-      },
-    });
-
+    const user = await this.userRepository.findByEmailOrUsername(
+      dto.email,
+      dto.username,
+    );
     return !!user;
   }
 
-  private async findUserByEmailOrThrow(email: string) {
-    const user = await this.prisma.user.findUnique({ where: { email } });
+  private async findUserByEmailOrThrow(email: string): Promise<User> {
+    const user = await this.userRepository.findByEmail(email);
 
     if (!user) {
       throw AuthError.InvalidCredentials();
@@ -89,10 +80,7 @@ export class AuthService {
     return this.tokenService.signTokens(user.id, user.email, user.role);
   }
 
-  public logout(user: User) {
-    return this.prisma.user.update({
-      where: { id: user.id },
-      data: { refreshToken: null },
-    });
+  public async logout(user: User): Promise<void> {
+    await this.userRepository.updateRefreshToken(user.id, null);
   }
 }

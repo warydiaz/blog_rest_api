@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { TokenService } from './token.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { PrismaService } from '../prisma/prisma.service';
+import { USER_REPOSITORY } from '../user/repository/user.repository.interface';
 import { Role } from '@prisma/client';
 import * as argon from 'argon2';
 
@@ -11,7 +11,6 @@ jest.mock('argon2');
 describe('TokenService', () => {
   let service: TokenService;
   let jwtService: jest.Mocked<JwtService>;
-  let prisma: jest.Mocked<PrismaService>;
 
   const mockJwtService = { signAsync: jest.fn() };
 
@@ -22,8 +21,8 @@ describe('TokenService', () => {
     }),
   };
 
-  const mockPrismaService = {
-    user: { update: jest.fn() },
+  const mockUserRepository = {
+    updateRefreshToken: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -32,13 +31,12 @@ describe('TokenService', () => {
         TokenService,
         { provide: JwtService, useValue: mockJwtService },
         { provide: ConfigService, useValue: mockConfigService },
-        { provide: PrismaService, useValue: mockPrismaService },
+        { provide: USER_REPOSITORY, useValue: mockUserRepository },
       ],
     }).compile();
 
     service = module.get<TokenService>(TokenService);
     jwtService = module.get(JwtService);
-    prisma = module.get(PrismaService);
   });
 
   afterEach(() => {
@@ -64,7 +62,7 @@ describe('TokenService', () => {
         .mockResolvedValueOnce(accessToken)
         .mockResolvedValueOnce(refreshToken);
       (argon.hash as jest.Mock).mockResolvedValue(hashedRefreshToken);
-      mockPrismaService.user.update.mockResolvedValue({});
+      mockUserRepository.updateRefreshToken.mockResolvedValue(undefined);
     });
 
     it('should sign access token with JWT_SECRET and 15m expiry', async () => {
@@ -89,10 +87,10 @@ describe('TokenService', () => {
       await service.signTokens(userId, email, role);
 
       expect(argon.hash).toHaveBeenCalledWith(refreshToken);
-      expect(prisma.user.update).toHaveBeenCalledWith({
-        where: { id: userId },
-        data: { refreshToken: hashedRefreshToken },
-      });
+      expect(mockUserRepository.updateRefreshToken).toHaveBeenCalledWith(
+        userId,
+        hashedRefreshToken,
+      );
     });
 
     it('should return access_token and refresh_token', async () => {

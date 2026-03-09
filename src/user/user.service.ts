@@ -1,12 +1,15 @@
-import { Injectable } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { Inject, Injectable } from '@nestjs/common';
 import { EditUserDto } from './dto';
 import { UserError } from './error/user.error';
 import { User } from '@prisma/client';
+import type { IUserRepository } from './repository/user.repository.interface';
+import { USER_REPOSITORY } from './repository/user.repository.interface';
 
 @Injectable()
 export class UserService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    @Inject(USER_REPOSITORY) private userRepository: IUserRepository,
+  ) {}
 
   async editUser(
     userId: number,
@@ -18,23 +21,17 @@ export class UserService {
       throw UserError.EmailAlreadyTaken();
     }
 
-    return this.prisma.user.update({
-      where: { id: userId },
-      data: { ...dto },
-      omit: { hash: true, refreshToken: true },
-    });
+    return this.userRepository.update(userId, dto);
   }
 
   async deleteUser(userId: number): Promise<void> {
-    await this.prisma.user.delete({ where: { id: userId } });
+    await this.userRepository.delete(userId);
   }
 
   private async isEmailTaken(dto: EditUserDto): Promise<boolean> {
     if (!dto.email) return false;
 
-    const user = await this.prisma.user.findFirst({
-      where: { email: dto.email },
-    });
+    const user = await this.userRepository.findByEmail(dto.email);
 
     return !!user;
   }

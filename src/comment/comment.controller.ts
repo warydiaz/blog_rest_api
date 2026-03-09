@@ -41,6 +41,14 @@ export class CommentController {
     @GetUserId() userId: number,
     @Body() dto: EditCommentDto,
   ) {
+    console.log(
+      'updateComment called with id:',
+      id,
+      'userId:',
+      userId,
+      'dto:',
+      dto,
+    );
     return await this.commentService.updateComment(id, userId, dto);
   }
 

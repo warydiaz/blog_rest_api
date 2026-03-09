@@ -1,15 +1,19 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { Category } from '@prisma/client';
-import { PrismaService } from 'src/prisma/prisma.service';
 import { CategoryError } from './error/category.error';
 import { CategoryDto, EditCategoryDto } from './dto';
+import type { ICategoryRepository } from './repository/category.repository.interface';
+import { CATEGORY_REPOSITORY } from './repository/category.repository.interface';
 
 @Injectable()
 export class CategoryService {
-  constructor(private prismaService: PrismaService) {}
+  constructor(
+    @Inject(CATEGORY_REPOSITORY)
+    private categoryRepository: ICategoryRepository,
+  ) {}
+
   async getAllCategories(): Promise<Category[]> {
-    const categories = await this.prismaService.category.findMany();
-    return categories;
+    return this.categoryRepository.findMany();
   }
 
   async getCategoryBySlug(slug: string): Promise<Category> {
@@ -18,46 +22,33 @@ export class CategoryService {
 
   async createCategory(dto: CategoryDto): Promise<Category> {
     await this.validateUniqueSlug(dto.slug);
-    return this.prismaService.category.create({ data: { ...dto } });
+    return this.categoryRepository.create(dto);
   }
 
   async updateCategory(slug: string, dto: EditCategoryDto): Promise<Category> {
     await this.findCategoryOrFail(slug);
-
-    return this.prismaService.category.update({
-      where: { slug },
-      data: { ...dto },
-    });
+    return this.categoryRepository.update(slug, dto);
   }
 
   async deleteCategory(slug: string): Promise<void> {
     await this.findCategoryOrFail(slug);
-
-    await this.prismaService.category.delete({
-      where: { slug },
-    });
+    await this.categoryRepository.delete(slug);
   }
 
   async getCategoryByIdOrFail(id: number): Promise<Category> {
-    const category = await this.prismaService.category.findUnique({
-      where: { id },
-    });
+    const category = await this.categoryRepository.findById(id);
     if (!category) throw CategoryError.CategoryNotFound();
     return category;
   }
 
   private async findCategoryOrFail(slug: string): Promise<Category> {
-    const category = await this.prismaService.category.findUnique({
-      where: { slug },
-    });
+    const category = await this.categoryRepository.findBySlug(slug);
     if (!category) throw CategoryError.CategoryNotFound();
     return category;
   }
 
   private async validateUniqueSlug(slug: string): Promise<void> {
-    const category = await this.prismaService.category.findUnique({
-      where: { slug },
-    });
+    const category = await this.categoryRepository.findBySlug(slug);
     if (category) throw CategoryError.SlugAlreadyExists();
   }
 }

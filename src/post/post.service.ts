@@ -1,23 +1,20 @@
-import { Injectable } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { Inject, Injectable } from '@nestjs/common';
 import { Post, Role } from '@prisma/client';
 import { CreatePostDto, EditPostDto, EditCoverDto } from './dto';
 import { PostError } from './error/post.error';
 import { CategoryService } from '../category/category.service';
+import type { IPostRepository } from './repository/post.repository.interface';
+import { POST_REPOSITORY } from './repository/post.repository.interface';
 
 @Injectable()
 export class PostService {
   constructor(
-    private prismaService: PrismaService,
+    @Inject(POST_REPOSITORY) private postRepository: IPostRepository,
     private categoryService: CategoryService,
   ) {}
 
   async getAllPosts(): Promise<Post[]> {
-    const posts = await this.prismaService.post.findMany({
-      where: { published: true },
-    });
-
-    return posts;
+    return this.postRepository.findPublished();
   }
 
   async getPostBySlug(slug: string): Promise<Post> {
@@ -29,15 +26,7 @@ export class PostService {
 
     const { tagIds, ...postData } = dto;
 
-    return this.prismaService.post.create({
-      data: {
-        ...postData,
-        authorId: userId,
-        tags: tagIds?.length
-          ? { connect: tagIds.map((id) => ({ id })) }
-          : undefined,
-      },
-    });
+    return this.postRepository.create({ ...postData, authorId: userId, tagIds });
   }
 
   async updatePost(
@@ -50,45 +39,28 @@ export class PostService {
     this.validateOwnership(post, userId, role);
     await this.validateUpdateConstraints(dto);
 
-    const { tagIds, ...postData } = dto;
-
-    return this.prismaService.post.update({
-      where: { slug },
-      data: {
-        ...postData,
-        tags:
-          tagIds !== undefined
-            ? { set: tagIds.map((id) => ({ id })) }
-            : undefined,
-      },
-    });
+    return this.postRepository.update(slug, dto);
   }
 
   async deletePost(userId: number, slug: string, role: Role): Promise<void> {
     const post = await this.findPostOrFail(slug);
     this.validateOwnership(post, userId, role);
 
-    await this.prismaService.post.delete({ where: { slug } });
+    await this.postRepository.delete(slug);
   }
 
   async publishPost(userId: number, slug: string, role: Role): Promise<Post> {
     const post = await this.findPostOrFail(slug);
     this.validateOwnership(post, userId, role);
 
-    return this.prismaService.post.update({
-      where: { slug },
-      data: { published: true },
-    });
+    return this.postRepository.update(slug, { published: true });
   }
 
   async unpublishPost(userId: number, slug: string, role: Role): Promise<Post> {
     const post = await this.findPostOrFail(slug);
     this.validateOwnership(post, userId, role);
 
-    return this.prismaService.post.update({
-      where: { slug },
-      data: { published: false },
-    });
+    return this.postRepository.update(slug, { published: false });
   }
 
   async updateCover(
@@ -100,23 +72,15 @@ export class PostService {
     const post = await this.findPostOrFail(slug);
     this.validateOwnership(post, userId, role);
 
-    return this.prismaService.post.update({
-      where: { slug },
-      data: { coverImageUrl: dto.coverImageUrl },
-    });
+    return this.postRepository.update(slug, { coverImageUrl: dto.coverImageUrl });
   }
 
   async getPublishedPostsByTagId(tagId: number): Promise<Post[]> {
-    return this.prismaService.post.findMany({
-      where: {
-        tags: { some: { id: tagId } },
-        published: true,
-      },
-    });
+    return this.postRepository.findByTagId(tagId);
   }
 
   private async findPostOrFail(slug: string): Promise<Post> {
-    const post = await this.prismaService.post.findUnique({ where: { slug } });
+    const post = await this.postRepository.findBySlug(slug);
     if (!post) throw PostError.PostNotFound();
     return post;
   }
@@ -130,17 +94,13 @@ export class PostService {
   private async validateCreateConstraints(dto: CreatePostDto): Promise<void> {
     await this.categoryService.getCategoryByIdOrFail(dto.categoryId);
 
-    const existSlug = await this.prismaService.post.findUnique({
-      where: { slug: dto.slug },
-    });
+    const existSlug = await this.postRepository.findBySlug(dto.slug);
     if (existSlug) throw PostError.SlugAlreadyExists();
   }
 
   private async validateUpdateConstraints(dto: EditPostDto): Promise<void> {
     if (dto.slug) {
-      const existSlug = await this.prismaService.post.findUnique({
-        where: { slug: dto.slug },
-      });
+      const existSlug = await this.postRepository.findBySlug(dto.slug);
       if (existSlug) throw PostError.SlugAlreadyExists();
     }
 

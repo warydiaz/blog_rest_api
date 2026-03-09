@@ -1,32 +1,28 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UserService } from './user.service';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { USER_REPOSITORY } from './repository/user.repository.interface';
 import { EditUserDto } from './dto';
 import { UserError } from './error/user.error';
 import { Role } from '@prisma/client';
 
 describe('UserService', () => {
   let service: UserService;
-  let prisma: jest.Mocked<PrismaService>;
 
-  const mockPrismaService = {
-    user: {
-      findFirst: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
-    },
+  const mockUserRepository = {
+    findByEmail: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
   };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UserService,
-        { provide: PrismaService, useValue: mockPrismaService },
+        { provide: USER_REPOSITORY, useValue: mockUserRepository },
       ],
     }).compile();
 
     service = module.get<UserService>(UserService);
-    prisma = module.get(PrismaService);
   });
 
   afterEach(() => {
@@ -62,30 +58,24 @@ describe('UserService', () => {
     };
 
     it('should update and return the user when email is not taken', async () => {
-      mockPrismaService.user.findFirst.mockResolvedValue(null);
-      mockPrismaService.user.update.mockResolvedValue(updatedUser);
+      mockUserRepository.findByEmail.mockResolvedValue(null);
+      mockUserRepository.update.mockResolvedValue(updatedUser);
 
       const result = await service.editUser(userId, dto);
 
-      expect(mockPrismaService.user.findFirst).toHaveBeenCalledWith({
-        where: { email: dto.email },
-      });
-      expect(mockPrismaService.user.update).toHaveBeenCalledWith({
-        where: { id: userId },
-        data: { ...dto },
-        omit: { hash: true, refreshToken: true },
-      });
+      expect(mockUserRepository.findByEmail).toHaveBeenCalledWith(dto.email);
+      expect(mockUserRepository.update).toHaveBeenCalledWith(userId, dto);
       expect(result).toEqual(updatedUser);
     });
 
     it('should throw UserError.EmailAlreadyTaken when the email is already in use', async () => {
-      mockPrismaService.user.findFirst.mockResolvedValue(updatedUser);
+      mockUserRepository.findByEmail.mockResolvedValue(updatedUser);
 
       await expect(service.editUser(userId, dto)).rejects.toThrow(
         UserError.EmailAlreadyTaken().message,
       );
 
-      expect(mockPrismaService.user.update).not.toHaveBeenCalled();
+      expect(mockUserRepository.update).not.toHaveBeenCalled();
     });
   });
 
@@ -94,34 +84,17 @@ describe('UserService', () => {
   describe('deleteUser', () => {
     const userId = 1;
 
-    const deletedUser = {
-      id: userId,
-      email: 'john@example.com',
-      username: 'johndoe',
-      firstName: 'John',
-      lastName: 'Doe',
-      bio: null,
-      avatarUrl: null,
-      role: Role.READER,
-      hash: 'hashed_password',
-      refreshToken: null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    it('should call prisma.user.delete with the correct userId', async () => {
-      mockPrismaService.user.delete.mockResolvedValue(deletedUser);
+    it('should call userRepository.delete with the correct userId', async () => {
+      mockUserRepository.delete.mockResolvedValue(undefined);
 
       await service.deleteUser(userId);
 
-      expect(mockPrismaService.user.delete).toHaveBeenCalledWith({
-        where: { id: userId },
-      });
-      expect(mockPrismaService.user.delete).toHaveBeenCalledTimes(1);
+      expect(mockUserRepository.delete).toHaveBeenCalledWith(userId);
+      expect(mockUserRepository.delete).toHaveBeenCalledTimes(1);
     });
 
     it('should resolve without error when user is deleted', async () => {
-      mockPrismaService.user.delete.mockResolvedValue(deletedUser);
+      mockUserRepository.delete.mockResolvedValue(undefined);
 
       await expect(service.deleteUser(userId)).resolves.toBeUndefined();
     });

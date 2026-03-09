@@ -1,16 +1,17 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { PrismaService } from '../prisma/prisma.service';
 import { Role } from '@prisma/client';
 import * as argon from 'argon2';
+import type { IUserRepository } from '../user/repository/user.repository.interface';
+import { USER_REPOSITORY } from '../user/repository/user.repository.interface';
 
 @Injectable()
 export class TokenService {
   constructor(
     private jwtService: JwtService,
     private configService: ConfigService,
-    private prisma: PrismaService,
+    @Inject(USER_REPOSITORY) private userRepository: IUserRepository,
   ) {}
 
   async signTokens(
@@ -31,10 +32,10 @@ export class TokenService {
       }),
     ]);
 
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { refreshToken: await argon.hash(refresh_token) },
-    });
+    await this.userRepository.updateRefreshToken(
+      userId,
+      await argon.hash(refresh_token),
+    );
 
     return { access_token, refresh_token };
   }

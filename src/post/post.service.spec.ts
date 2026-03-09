@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { PostService } from './post.service';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { POST_REPOSITORY } from './repository/post.repository.interface';
 import { CategoryService } from 'src/category/category.service';
 import { CreatePostDto, EditPostDto } from './dto';
 import { PostError } from './error/post.error';
@@ -11,14 +11,13 @@ import { Role } from '@prisma/client';
 describe('PostService', () => {
   let service: PostService;
 
-  const mockPrismaService = {
-    post: {
-      findMany: jest.fn(),
-      findUnique: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
-    },
+  const mockPostRepository = {
+    findPublished: jest.fn(),
+    findBySlug: jest.fn(),
+    findByTagId: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
   };
 
   const mockCategoryService = {
@@ -45,7 +44,7 @@ describe('PostService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PostService,
-        { provide: PrismaService, useValue: mockPrismaService },
+        { provide: POST_REPOSITORY, useValue: mockPostRepository },
         { provide: CategoryService, useValue: mockCategoryService },
       ],
     }).compile();
@@ -65,13 +64,11 @@ describe('PostService', () => {
 
   describe('getAllPosts', () => {
     it('should return all published posts', async () => {
-      mockPrismaService.post.findMany.mockResolvedValue([mockPost]);
+      mockPostRepository.findPublished.mockResolvedValue([mockPost]);
 
       const result = await service.getAllPosts();
 
-      expect(mockPrismaService.post.findMany).toHaveBeenCalledWith({
-        where: { published: true },
-      });
+      expect(mockPostRepository.findPublished).toHaveBeenCalledTimes(1);
       expect(result).toEqual([mockPost]);
     });
   });
@@ -80,18 +77,16 @@ describe('PostService', () => {
 
   describe('getPostBySlug', () => {
     it('should return the post when it exists', async () => {
-      mockPrismaService.post.findUnique.mockResolvedValue(mockPost);
+      mockPostRepository.findBySlug.mockResolvedValue(mockPost);
 
       const result = await service.getPostBySlug('test-post');
 
-      expect(mockPrismaService.post.findUnique).toHaveBeenCalledWith({
-        where: { slug: 'test-post' },
-      });
+      expect(mockPostRepository.findBySlug).toHaveBeenCalledWith('test-post');
       expect(result).toEqual(mockPost);
     });
 
     it('should throw PostError.PostNotFound when post does not exist', async () => {
-      mockPrismaService.post.findUnique.mockResolvedValue(null);
+      mockPostRepository.findBySlug.mockResolvedValue(null);
 
       await expect(service.getPostBySlug('non-existent')).rejects.toThrow(
         PostError.PostNotFound().message,
@@ -112,19 +107,18 @@ describe('PostService', () => {
 
     it('should create and return the post', async () => {
       mockCategoryService.getCategoryByIdOrFail.mockResolvedValue(mockCategory);
-      mockPrismaService.post.findUnique.mockResolvedValue(null);
-      mockPrismaService.post.create.mockResolvedValue(mockPost);
+      mockPostRepository.findBySlug.mockResolvedValue(null);
+      mockPostRepository.create.mockResolvedValue(mockPost);
 
       const result = await service.createPost(userId, dto);
 
-      expect(mockPrismaService.post.create).toHaveBeenCalledWith({
-        data: {
-          title: dto.title,
-          slug: dto.slug,
-          content: dto.content,
-          categoryId: dto.categoryId,
-          authorId: userId,
-        },
+      expect(mockPostRepository.create).toHaveBeenCalledWith({
+        title: dto.title,
+        slug: dto.slug,
+        content: dto.content,
+        categoryId: dto.categoryId,
+        authorId: userId,
+        tagIds: undefined,
       });
       expect(result).toEqual(mockPost);
     });
@@ -132,20 +126,18 @@ describe('PostService', () => {
     it('should create the post with connected tags when tagIds are provided', async () => {
       const dtoWithTags: CreatePostDto = { ...dto, tagIds: [1, 2] };
       mockCategoryService.getCategoryByIdOrFail.mockResolvedValue(mockCategory);
-      mockPrismaService.post.findUnique.mockResolvedValue(null);
-      mockPrismaService.post.create.mockResolvedValue(mockPost);
+      mockPostRepository.findBySlug.mockResolvedValue(null);
+      mockPostRepository.create.mockResolvedValue(mockPost);
 
       await service.createPost(userId, dtoWithTags);
 
-      expect(mockPrismaService.post.create).toHaveBeenCalledWith({
-        data: {
-          title: dto.title,
-          slug: dto.slug,
-          content: dto.content,
-          categoryId: dto.categoryId,
-          authorId: userId,
-          tags: { connect: [{ id: 1 }, { id: 2 }] },
-        },
+      expect(mockPostRepository.create).toHaveBeenCalledWith({
+        title: dto.title,
+        slug: dto.slug,
+        content: dto.content,
+        categoryId: dto.categoryId,
+        authorId: userId,
+        tagIds: [1, 2],
       });
     });
 
@@ -157,17 +149,17 @@ describe('PostService', () => {
       await expect(service.createPost(userId, dto)).rejects.toThrow(
         CategoryError.CategoryNotFound().message,
       );
-      expect(mockPrismaService.post.create).not.toHaveBeenCalled();
+      expect(mockPostRepository.create).not.toHaveBeenCalled();
     });
 
     it('should throw PostError.SlugAlreadyExists when slug is taken', async () => {
       mockCategoryService.getCategoryByIdOrFail.mockResolvedValue(mockCategory);
-      mockPrismaService.post.findUnique.mockResolvedValue(mockPost);
+      mockPostRepository.findBySlug.mockResolvedValue(mockPost);
 
       await expect(service.createPost(userId, dto)).rejects.toThrow(
         PostError.SlugAlreadyExists().message,
       );
-      expect(mockPrismaService.post.create).not.toHaveBeenCalled();
+      expect(mockPostRepository.create).not.toHaveBeenCalled();
     });
   });
 
@@ -179,8 +171,8 @@ describe('PostService', () => {
 
     it('should update and return the post when owner calls it', async () => {
       const updatedPost = { ...mockPost, title: 'Updated Title' };
-      mockPrismaService.post.findUnique.mockResolvedValue(mockPost);
-      mockPrismaService.post.update.mockResolvedValue(updatedPost);
+      mockPostRepository.findBySlug.mockResolvedValue(mockPost);
+      mockPostRepository.update.mockResolvedValue(updatedPost);
 
       const result = await service.updatePost(
         userId,
@@ -189,32 +181,26 @@ describe('PostService', () => {
         Role.AUTHOR,
       );
 
-      expect(mockPrismaService.post.update).toHaveBeenCalledWith({
-        where: { slug: 'test-post' },
-        data: { title: 'Updated Title' },
-      });
+      expect(mockPostRepository.update).toHaveBeenCalledWith('test-post', dto);
       expect(result).toEqual(updatedPost);
     });
 
     it('should update the post with replaced tags when tagIds are provided', async () => {
       const dtoWithTags: EditPostDto = { tagIds: [3] };
       const updatedPost = { ...mockPost };
-      mockPrismaService.post.findUnique.mockResolvedValue(mockPost);
-      mockPrismaService.post.update.mockResolvedValue(updatedPost);
+      mockPostRepository.findBySlug.mockResolvedValue(mockPost);
+      mockPostRepository.update.mockResolvedValue(updatedPost);
 
       await service.updatePost(userId, 'test-post', dtoWithTags, Role.AUTHOR);
 
-      expect(mockPrismaService.post.update).toHaveBeenCalledWith({
-        where: { slug: 'test-post' },
-        data: { tags: { set: [{ id: 3 }] } },
-      });
+      expect(mockPostRepository.update).toHaveBeenCalledWith('test-post', dtoWithTags);
     });
 
     it('should allow ADMIN to update any post', async () => {
       const adminId = 99;
       const updatedPost = { ...mockPost, title: 'Updated Title' };
-      mockPrismaService.post.findUnique.mockResolvedValue(mockPost);
-      mockPrismaService.post.update.mockResolvedValue(updatedPost);
+      mockPostRepository.findBySlug.mockResolvedValue(mockPost);
+      mockPostRepository.update.mockResolvedValue(updatedPost);
 
       const result = await service.updatePost(
         adminId,
@@ -223,12 +209,12 @@ describe('PostService', () => {
         Role.ADMIN,
       );
 
-      expect(mockPrismaService.post.update).toHaveBeenCalled();
+      expect(mockPostRepository.update).toHaveBeenCalled();
       expect(result).toEqual(updatedPost);
     });
 
     it('should throw PostError.PostNotFound when post does not exist', async () => {
-      mockPrismaService.post.findUnique.mockResolvedValue(null);
+      mockPostRepository.findBySlug.mockResolvedValue(null);
 
       await expect(
         service.updatePost(userId, 'non-existent', dto, Role.AUTHOR),
@@ -237,7 +223,7 @@ describe('PostService', () => {
 
     it('should throw PostError.Forbidden when non-owner AUTHOR tries to update', async () => {
       const otherUserId = 99;
-      mockPrismaService.post.findUnique.mockResolvedValue(mockPost);
+      mockPostRepository.findBySlug.mockResolvedValue(mockPost);
 
       await expect(
         service.updatePost(otherUserId, 'test-post', dto, Role.AUTHOR),
@@ -247,7 +233,7 @@ describe('PostService', () => {
     it('should throw PostError.SlugAlreadyExists when new slug is taken', async () => {
       const dtoWithSlug: EditPostDto = { slug: 'existing-slug' };
       const existingPost = { ...mockPost, slug: 'existing-slug', id: 2 };
-      mockPrismaService.post.findUnique
+      mockPostRepository.findBySlug
         .mockResolvedValueOnce(mockPost)
         .mockResolvedValueOnce(existingPost);
 
@@ -258,7 +244,7 @@ describe('PostService', () => {
 
     it('should throw CategoryError.CategoryNotFound when new categoryId does not exist', async () => {
       const dtoWithCategory: EditPostDto = { categoryId: 99 };
-      mockPrismaService.post.findUnique.mockResolvedValue(mockPost);
+      mockPostRepository.findBySlug.mockResolvedValue(mockPost);
       mockCategoryService.getCategoryByIdOrFail.mockRejectedValue(
         CategoryError.CategoryNotFound(),
       );
@@ -275,28 +261,26 @@ describe('PostService', () => {
     const userId = 10;
 
     it('should delete the post when owner calls it', async () => {
-      mockPrismaService.post.findUnique.mockResolvedValue(mockPost);
-      mockPrismaService.post.delete.mockResolvedValue(mockPost);
+      mockPostRepository.findBySlug.mockResolvedValue(mockPost);
+      mockPostRepository.delete.mockResolvedValue(undefined);
 
       await service.deletePost(userId, 'test-post', Role.AUTHOR);
 
-      expect(mockPrismaService.post.delete).toHaveBeenCalledWith({
-        where: { slug: 'test-post' },
-      });
+      expect(mockPostRepository.delete).toHaveBeenCalledWith('test-post');
     });
 
     it('should allow ADMIN to delete any post', async () => {
       const adminId = 99;
-      mockPrismaService.post.findUnique.mockResolvedValue(mockPost);
-      mockPrismaService.post.delete.mockResolvedValue(mockPost);
+      mockPostRepository.findBySlug.mockResolvedValue(mockPost);
+      mockPostRepository.delete.mockResolvedValue(undefined);
 
       await service.deletePost(adminId, 'test-post', Role.ADMIN);
 
-      expect(mockPrismaService.post.delete).toHaveBeenCalled();
+      expect(mockPostRepository.delete).toHaveBeenCalled();
     });
 
     it('should throw PostError.PostNotFound when post does not exist', async () => {
-      mockPrismaService.post.findUnique.mockResolvedValue(null);
+      mockPostRepository.findBySlug.mockResolvedValue(null);
 
       await expect(
         service.deletePost(userId, 'non-existent', Role.AUTHOR),
@@ -305,7 +289,7 @@ describe('PostService', () => {
 
     it('should throw PostError.Forbidden when non-owner AUTHOR tries to delete', async () => {
       const otherUserId = 99;
-      mockPrismaService.post.findUnique.mockResolvedValue(mockPost);
+      mockPostRepository.findBySlug.mockResolvedValue(mockPost);
 
       await expect(
         service.deletePost(otherUserId, 'test-post', Role.AUTHOR),
@@ -320,18 +304,13 @@ describe('PostService', () => {
 
     it('should publish the post when owner calls it', async () => {
       const publishedPost = { ...mockPost, published: true };
-      mockPrismaService.post.findUnique.mockResolvedValue(mockPost);
-      mockPrismaService.post.update.mockResolvedValue(publishedPost);
+      mockPostRepository.findBySlug.mockResolvedValue(mockPost);
+      mockPostRepository.update.mockResolvedValue(publishedPost);
 
-      const result = await service.publishPost(
-        userId,
-        'test-post',
-        Role.AUTHOR,
-      );
+      const result = await service.publishPost(userId, 'test-post', Role.AUTHOR);
 
-      expect(mockPrismaService.post.update).toHaveBeenCalledWith({
-        where: { slug: 'test-post' },
-        data: { published: true },
+      expect(mockPostRepository.update).toHaveBeenCalledWith('test-post', {
+        published: true,
       });
       expect(result).toEqual(publishedPost);
     });
@@ -339,20 +318,16 @@ describe('PostService', () => {
     it('should allow ADMIN to publish any post', async () => {
       const adminId = 99;
       const publishedPost = { ...mockPost, published: true };
-      mockPrismaService.post.findUnique.mockResolvedValue(mockPost);
-      mockPrismaService.post.update.mockResolvedValue(publishedPost);
+      mockPostRepository.findBySlug.mockResolvedValue(mockPost);
+      mockPostRepository.update.mockResolvedValue(publishedPost);
 
-      const result = await service.publishPost(
-        adminId,
-        'test-post',
-        Role.ADMIN,
-      );
+      const result = await service.publishPost(adminId, 'test-post', Role.ADMIN);
 
       expect(result).toEqual(publishedPost);
     });
 
     it('should throw PostError.PostNotFound when post does not exist', async () => {
-      mockPrismaService.post.findUnique.mockResolvedValue(null);
+      mockPostRepository.findBySlug.mockResolvedValue(null);
 
       await expect(
         service.publishPost(userId, 'non-existent', Role.AUTHOR),
@@ -361,7 +336,7 @@ describe('PostService', () => {
 
     it('should throw PostError.Forbidden when non-owner AUTHOR tries to publish', async () => {
       const otherUserId = 99;
-      mockPrismaService.post.findUnique.mockResolvedValue(mockPost);
+      mockPostRepository.findBySlug.mockResolvedValue(mockPost);
 
       await expect(
         service.publishPost(otherUserId, 'test-post', Role.AUTHOR),
@@ -377,18 +352,13 @@ describe('PostService', () => {
 
     it('should unpublish the post when owner calls it', async () => {
       const unpublishedPost = { ...publishedMockPost, published: false };
-      mockPrismaService.post.findUnique.mockResolvedValue(publishedMockPost);
-      mockPrismaService.post.update.mockResolvedValue(unpublishedPost);
+      mockPostRepository.findBySlug.mockResolvedValue(publishedMockPost);
+      mockPostRepository.update.mockResolvedValue(unpublishedPost);
 
-      const result = await service.unpublishPost(
-        userId,
-        'test-post',
-        Role.AUTHOR,
-      );
+      const result = await service.unpublishPost(userId, 'test-post', Role.AUTHOR);
 
-      expect(mockPrismaService.post.update).toHaveBeenCalledWith({
-        where: { slug: 'test-post' },
-        data: { published: false },
+      expect(mockPostRepository.update).toHaveBeenCalledWith('test-post', {
+        published: false,
       });
       expect(result).toEqual(unpublishedPost);
     });
@@ -396,20 +366,16 @@ describe('PostService', () => {
     it('should allow ADMIN to unpublish any post', async () => {
       const adminId = 99;
       const unpublishedPost = { ...publishedMockPost, published: false };
-      mockPrismaService.post.findUnique.mockResolvedValue(publishedMockPost);
-      mockPrismaService.post.update.mockResolvedValue(unpublishedPost);
+      mockPostRepository.findBySlug.mockResolvedValue(publishedMockPost);
+      mockPostRepository.update.mockResolvedValue(unpublishedPost);
 
-      const result = await service.unpublishPost(
-        adminId,
-        'test-post',
-        Role.ADMIN,
-      );
+      const result = await service.unpublishPost(adminId, 'test-post', Role.ADMIN);
 
       expect(result).toEqual(unpublishedPost);
     });
 
     it('should throw PostError.PostNotFound when post does not exist', async () => {
-      mockPrismaService.post.findUnique.mockResolvedValue(null);
+      mockPostRepository.findBySlug.mockResolvedValue(null);
 
       await expect(
         service.unpublishPost(userId, 'non-existent', Role.AUTHOR),
@@ -418,7 +384,7 @@ describe('PostService', () => {
 
     it('should throw PostError.Forbidden when non-owner AUTHOR tries to unpublish', async () => {
       const otherUserId = 99;
-      mockPrismaService.post.findUnique.mockResolvedValue(publishedMockPost);
+      mockPostRepository.findBySlug.mockResolvedValue(publishedMockPost);
 
       await expect(
         service.unpublishPost(otherUserId, 'test-post', Role.AUTHOR),
@@ -436,19 +402,13 @@ describe('PostService', () => {
 
     it('should update and return the post with the new cover when owner calls it', async () => {
       const updatedPost = { ...mockPost, coverImageUrl: dto.coverImageUrl };
-      mockPrismaService.post.findUnique.mockResolvedValue(mockPost);
-      mockPrismaService.post.update.mockResolvedValue(updatedPost);
+      mockPostRepository.findBySlug.mockResolvedValue(mockPost);
+      mockPostRepository.update.mockResolvedValue(updatedPost);
 
-      const result = await service.updateCover(
-        userId,
-        'test-post',
-        Role.AUTHOR,
-        dto,
-      );
+      const result = await service.updateCover(userId, 'test-post', Role.AUTHOR, dto);
 
-      expect(mockPrismaService.post.update).toHaveBeenCalledWith({
-        where: { slug: 'test-post' },
-        data: { coverImageUrl: dto.coverImageUrl },
+      expect(mockPostRepository.update).toHaveBeenCalledWith('test-post', {
+        coverImageUrl: dto.coverImageUrl,
       });
       expect(result).toEqual(updatedPost);
     });
@@ -456,22 +416,17 @@ describe('PostService', () => {
     it('should allow ADMIN to update the cover of any post', async () => {
       const adminId = 99;
       const updatedPost = { ...mockPost, coverImageUrl: dto.coverImageUrl };
-      mockPrismaService.post.findUnique.mockResolvedValue(mockPost);
-      mockPrismaService.post.update.mockResolvedValue(updatedPost);
+      mockPostRepository.findBySlug.mockResolvedValue(mockPost);
+      mockPostRepository.update.mockResolvedValue(updatedPost);
 
-      const result = await service.updateCover(
-        adminId,
-        'test-post',
-        Role.ADMIN,
-        dto,
-      );
+      const result = await service.updateCover(adminId, 'test-post', Role.ADMIN, dto);
 
-      expect(mockPrismaService.post.update).toHaveBeenCalled();
+      expect(mockPostRepository.update).toHaveBeenCalled();
       expect(result).toEqual(updatedPost);
     });
 
     it('should throw PostError.PostNotFound when post does not exist', async () => {
-      mockPrismaService.post.findUnique.mockResolvedValue(null);
+      mockPostRepository.findBySlug.mockResolvedValue(null);
 
       await expect(
         service.updateCover(userId, 'non-existent', Role.AUTHOR, dto),
@@ -480,7 +435,7 @@ describe('PostService', () => {
 
     it('should throw PostError.Forbidden when non-owner AUTHOR tries to update cover', async () => {
       const otherUserId = 99;
-      mockPrismaService.post.findUnique.mockResolvedValue(mockPost);
+      mockPostRepository.findBySlug.mockResolvedValue(mockPost);
 
       await expect(
         service.updateCover(otherUserId, 'test-post', Role.AUTHOR, dto),
