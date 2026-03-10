@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UserService } from './user.service';
 import { USER_REPOSITORY } from './repository/user.repository.interface';
+import { STORAGE_SERVICE } from '../uploads/storage.service.interface';
 import { EditUserDto } from './dto';
 import { UserError } from './error/user.error';
 import { Role } from '@prisma/client';
@@ -14,11 +15,17 @@ describe('UserService', () => {
     delete: jest.fn(),
   };
 
+  const mockStorageService = {
+    upload: jest.fn(),
+    delete: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UserService,
         { provide: USER_REPOSITORY, useValue: mockUserRepository },
+        { provide: STORAGE_SERVICE, useValue: mockStorageService },
       ],
     }).compile();
 
@@ -27,6 +34,7 @@ describe('UserService', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+    jest.resetAllMocks();
   });
 
   it('should be defined', () => {
@@ -76,6 +84,25 @@ describe('UserService', () => {
       );
 
       expect(mockUserRepository.update).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── updateAvatar ─────────────────────────────────────────────────────────
+
+  describe('updateAvatar', () => {
+    const userId = 1;
+    const avatarUrl = 'http://localhost:3000/uploads/avatar.png';
+    const file = { originalname: 'avatar.png', buffer: Buffer.from('') } as Express.Multer.File;
+
+    it('should upload the file and return the avatarUrl', async () => {
+      mockStorageService.upload.mockResolvedValue(avatarUrl);
+      mockUserRepository.update.mockResolvedValue({ avatarUrl });
+
+      const result = await service.updateAvatar(userId, file);
+
+      expect(mockStorageService.upload).toHaveBeenCalledWith(file);
+      expect(mockUserRepository.update).toHaveBeenCalledWith(userId, { avatarUrl });
+      expect(result).toEqual({ avatarUrl });
     });
   });
 

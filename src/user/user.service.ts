@@ -4,11 +4,14 @@ import { UserError } from './error/user.error';
 import { User } from '@prisma/client';
 import type { IUserRepository } from './repository/user.repository.interface';
 import { USER_REPOSITORY } from './repository/user.repository.interface';
+import type { IStorageService } from '../uploads/storage.service.interface';
+import { STORAGE_SERVICE } from '../uploads/storage.service.interface';
 
 @Injectable()
 export class UserService {
   constructor(
     @Inject(USER_REPOSITORY) private userRepository: IUserRepository,
+    @Inject(STORAGE_SERVICE) private storageService: IStorageService,
   ) {}
 
   async editUser(
@@ -26,6 +29,19 @@ export class UserService {
 
   async deleteUser(userId: number): Promise<void> {
     await this.userRepository.delete(userId);
+  }
+
+  async updateAvatar(
+    userId: number,
+    file: Express.Multer.File,
+  ): Promise<{ avatarUrl: string }> {
+    const avatarUrl = await this.storageService.upload(file);
+
+    console.log('userid', userId, 'avatarUrl', avatarUrl);
+
+    const user = await this.userRepository.update(userId, { avatarUrl });
+
+    return { avatarUrl: user.avatarUrl! };
   }
 
   private async isEmailTaken(dto: EditUserDto): Promise<boolean> {

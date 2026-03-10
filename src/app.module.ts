@@ -7,12 +7,14 @@ import { CategoryModule } from './category/category.module';
 import { PostModule } from './post/post.module';
 import { CommentModule } from './comment/comment.module';
 import { TagModule } from './tag/tag.module';
+import { UploadsModule } from './uploads/uploads.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    AuthModule,
     PrismaModule,
+    UploadsModule,
+    AuthModule,
     UserModule,
     CategoryModule,
     PostModule,

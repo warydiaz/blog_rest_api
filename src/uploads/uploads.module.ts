@@ -1,0 +1,10 @@
+import { Global, Module } from '@nestjs/common';
+import { LocalStorageService } from '../infrastructure/storage/local-storage.service';
+import { STORAGE_SERVICE } from './storage.service.interface';
+
+@Global()
+@Module({
+  providers: [{ provide: STORAGE_SERVICE, useClass: LocalStorageService }],
+  exports: [STORAGE_SERVICE],
+})
+export class UploadsModule {}
