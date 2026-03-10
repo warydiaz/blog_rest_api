@@ -6,6 +6,7 @@ import type { IUserRepository } from './repository/user.repository.interface';
 import { USER_REPOSITORY } from './repository/user.repository.interface';
 import type { IStorageService } from '../uploads/storage.service.interface';
 import { STORAGE_SERVICE } from '../uploads/storage.service.interface';
+import { PublicProfileDto } from './dto/public-profile.dto';
 
 @Injectable()
 export class UserService {
@@ -37,11 +38,16 @@ export class UserService {
   ): Promise<{ avatarUrl: string }> {
     const avatarUrl = await this.storageService.upload(file);
 
-    console.log('userid', userId, 'avatarUrl', avatarUrl);
-
     const user = await this.userRepository.update(userId, { avatarUrl });
 
     return { avatarUrl: user.avatarUrl! };
+  }
+
+  async getPublicProfile(username: string): Promise<PublicProfileDto> {
+    const user =
+      await this.userRepository.findPublicProfileByUsername(username);
+    if (!user) throw UserError.UserNotFound();
+    return user;
   }
 
   private async isEmailTaken(dto: EditUserDto): Promise<boolean> {

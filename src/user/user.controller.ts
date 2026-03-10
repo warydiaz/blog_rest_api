@@ -61,6 +61,12 @@ export class UserController {
     return await this.userService.updateAvatar(userId, file);
   }
 
+  @HttpCode(HttpStatus.OK)
+  @Get(':username')
+  async getPublicProfile(@Param('username') username: string) {
+    return await this.userService.getPublicProfile(username);
+  }
+
   @HttpCode(HttpStatus.NO_CONTENT)
   @Delete(':id')
   @Roles(Role.ADMIN)

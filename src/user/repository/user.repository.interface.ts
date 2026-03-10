@@ -1,4 +1,5 @@
 import { User, Role } from '@prisma/client';
+import { PublicProfileDto } from '../dto/public-profile.dto';
 
 export const USER_REPOSITORY = 'IUserRepository';
 
@@ -32,4 +33,7 @@ export interface IUserRepository {
   ): Promise<Omit<User, 'hash' | 'refreshToken'>>;
   updateRefreshToken(id: number, token: string | null): Promise<void>;
   delete(id: number): Promise<void>;
+  findPublicProfileByUsername(
+    username: string,
+  ): Promise<PublicProfileDto | null>;
 }

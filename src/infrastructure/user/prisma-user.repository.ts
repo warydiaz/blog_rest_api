@@ -6,6 +6,7 @@ import {
   CreateUserData,
   UpdateUserData,
 } from '../../user/repository/user.repository.interface';
+import { PublicProfileDto } from 'src/user/dto/public-profile.dto';
 
 @Injectable()
 export class PrismaUserRepository implements IUserRepository {
@@ -15,10 +16,7 @@ export class PrismaUserRepository implements IUserRepository {
     return this.prisma.user.findUnique({ where: { email } });
   }
 
-  findByEmailOrUsername(
-    email: string,
-    username: string,
-  ): Promise<User | null> {
+  findByEmailOrUsername(email: string, username: string): Promise<User | null> {
     return this.prisma.user.findFirst({
       where: { OR: [{ email }, { username }] },
     });
@@ -26,7 +24,12 @@ export class PrismaUserRepository implements IUserRepository {
 
   create(data: CreateUserData): Promise<Omit<User, 'hash' | 'refreshToken'>> {
     return this.prisma.user.create({
-      data: { ...data, role: data.role ?? Role.READER },
+      data: {
+        ...data,
+        firstName: data.firstName!,
+        lastName: data.lastName!,
+        role: data.role ?? Role.READER,
+      },
       omit: { hash: true, refreshToken: true },
     });
   }
@@ -51,5 +54,27 @@ export class PrismaUserRepository implements IUserRepository {
 
   async delete(id: number): Promise<void> {
     await this.prisma.user.delete({ where: { id } });
+  }
+
+  async findPublicProfileByUsername(
+    username: string,
+  ): Promise<PublicProfileDto | null> {
+    const user = await this.prisma.user.findUnique({
+      where: { username },
+      select: {
+        username: true,
+        firstName: true,
+        lastName: true,
+        bio: true,
+        avatarUrl: true,
+      },
+    });
+
+    if (!user) return null;
+    return {
+      ...user,
+      bio: user.bio ?? undefined,
+      avatarUrl: user.avatarUrl ?? undefined,
+    };
   }
 }
