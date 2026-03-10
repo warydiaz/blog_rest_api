@@ -5,6 +5,7 @@ import { EditUserDto } from './dto';
 import { UserError } from './error/user.error';
 import { Role } from '@prisma/client';
 import type { User } from 'generated/prisma/client';
+import { PublicProfileDto } from './dto/public-profile.dto';
 
 describe('UserController', () => {
   let controller: UserController;
@@ -13,6 +14,8 @@ describe('UserController', () => {
   const mockUserService: jest.Mocked<Partial<UserService>> = {
     editUser: jest.fn(),
     deleteUser: jest.fn(),
+    updateAvatar: jest.fn(),
+    getPublicProfile: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -129,6 +132,72 @@ describe('UserController', () => {
       userService.deleteUser.mockRejectedValue(UserError.UserNotFound());
 
       await expect(controller.deleteUser(userId)).rejects.toThrow(
+        UserError.UserNotFound().message,
+      );
+    });
+  });
+
+  // ─── uploadAvatar ─────────────────────────────────────────────────────────
+
+  describe('uploadAvatar', () => {
+    const userId = 1;
+    const avatarUrl = 'http://localhost:3000/uploads/avatar.png';
+    const file = {
+      originalname: 'avatar.png',
+      buffer: Buffer.from(''),
+    } as Express.Multer.File;
+
+    it('should call userService.updateAvatar with userId and file', async () => {
+      userService.updateAvatar.mockResolvedValue({ avatarUrl });
+
+      await controller.uploadAvatar(userId, file);
+
+      expect(userService.updateAvatar).toHaveBeenCalledWith(userId, file);
+      expect(userService.updateAvatar).toHaveBeenCalledTimes(1);
+    });
+
+    it('should return the avatarUrl returned by the service', async () => {
+      userService.updateAvatar.mockResolvedValue({ avatarUrl });
+
+      const result = await controller.uploadAvatar(userId, file);
+
+      expect(result).toEqual({ avatarUrl });
+    });
+  });
+
+  // ─── getPublicProfile ─────────────────────────────────────────────────────
+
+  describe('getPublicProfile', () => {
+    const username = 'johndoe';
+    const profile: PublicProfileDto = {
+      username,
+      firstName: 'John',
+      lastName: 'Doe',
+      bio: 'Hello world',
+      avatarUrl: 'http://localhost:3000/uploads/avatar.png',
+    };
+
+    it('should call userService.getPublicProfile with the username', async () => {
+      userService.getPublicProfile.mockResolvedValue(profile);
+
+      await controller.getPublicProfile(username);
+
+      expect(userService.getPublicProfile).toHaveBeenCalledWith(username);
+      expect(userService.getPublicProfile).toHaveBeenCalledTimes(1);
+    });
+
+    it('should return the profile returned by the service', async () => {
+      userService.getPublicProfile.mockResolvedValue(profile);
+
+      const result = await controller.getPublicProfile(username);
+
+      expect(result).toEqual(profile);
+    });
+
+    it('should propagate UserError.UserNotFound when username does not exist', async () => {
+      userService.getPublicProfile.mockRejectedValue(UserError.UserNotFound());
+
+      await expect(controller.getPublicProfile(username)).rejects.toThrow(
         UserError.UserNotFound().message,
       );
     });

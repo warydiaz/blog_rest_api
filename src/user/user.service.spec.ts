@@ -5,6 +5,7 @@ import { STORAGE_SERVICE } from '../uploads/storage.service.interface';
 import { EditUserDto } from './dto';
 import { UserError } from './error/user.error';
 import { Role } from '@prisma/client';
+import { PublicProfileDto } from './dto/public-profile.dto';
 
 describe('UserService', () => {
   let service: UserService;
@@ -13,6 +14,7 @@ describe('UserService', () => {
     findByEmail: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
+    findPublicProfileByUsername: jest.fn(),
   };
 
   const mockStorageService = {
@@ -124,6 +126,36 @@ describe('UserService', () => {
       mockUserRepository.delete.mockResolvedValue(undefined);
 
       await expect(service.deleteUser(userId)).resolves.toBeUndefined();
+    });
+  });
+
+  // ─── getPublicProfile ─────────────────────────────────────────────────────
+
+  describe('getPublicProfile', () => {
+    const username = 'johndoe';
+    const profile: PublicProfileDto = {
+      username,
+      firstName: 'John',
+      lastName: 'Doe',
+      bio: 'Hello world',
+      avatarUrl: 'http://localhost:3000/uploads/avatar.png',
+    };
+
+    it('should return the profile when user exists', async () => {
+      mockUserRepository.findPublicProfileByUsername.mockResolvedValue(profile);
+
+      const result = await service.getPublicProfile(username);
+
+      expect(mockUserRepository.findPublicProfileByUsername).toHaveBeenCalledWith(username);
+      expect(result).toEqual(profile);
+    });
+
+    it('should throw UserError.UserNotFound when username does not exist', async () => {
+      mockUserRepository.findPublicProfileByUsername.mockResolvedValue(null);
+
+      await expect(service.getPublicProfile(username)).rejects.toThrow(
+        UserError.UserNotFound().message,
+      );
     });
   });
 });
