@@ -9,7 +9,7 @@
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
-    "start:dev": "docker ps --filter 'name=dev-db' --filter 'status=running' -q | grep -q . && nest start --watch || (echo 'ERROR: Contenedor dev-db no está corriendo. Ejecuta: docker compose up -d' && exit 1)",
+    "start:dev": "docker compose ps -q dev-db | grep -q . && nest start --watch || (echo 'ERROR...' && exit 1)",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",

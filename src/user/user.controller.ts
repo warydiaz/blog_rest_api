@@ -73,4 +73,22 @@ export class UserController {
   async deleteUser(@Param('id', ParseIntPipe) userId: number) {
     return await this.userService.deleteUser(userId);
   }
+
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Post(':username/follow')
+  async followUser(
+    @GetUserId() currentUserId: number,
+    @Body('username') username: string,
+  ) {
+    return await this.userService.followUser(currentUserId, username);
+  }
+
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Delete(':username/follow')
+  async unfollowUser(
+    @GetUserId() currentUserId: number,
+    @Body('username') username: string,
+  ) {
+    return await this.userService.unfollowUser(currentUserId, username);
+  }
 }

@@ -12,4 +12,8 @@ export class UserError extends BaseError {
   static UserNotFound() {
     return new UserError(404, `User not found`);
   }
+
+  static CannotFollowYourself() {
+    return new UserError(400, `You cannot follow yourself`);
+  }
 }

@@ -57,4 +57,21 @@ export class UserService {
 
     return !!user;
   }
+
+  async followUser(currentUserId: number, username: string): Promise<void> {
+    const userToFollow =
+      await this.userRepository.findPublicProfileByUsername(username);
+
+    if (!userToFollow) throw UserError.UserNotFound();
+    if (currentUserId === userToFollow.id)
+      throw UserError.CannotFollowYourself();
+    await this.userRepository.followUser(currentUserId, userToFollow.id);
+  }
+
+  async unfollowUser(currentUserId: number, username: string): Promise<void> {
+    const userToUnfollow =
+      await this.userRepository.findPublicProfileByUsername(username);
+    if (!userToUnfollow) throw UserError.UserNotFound();
+    await this.userRepository.unfollowUser(currentUserId, userToUnfollow.id);
+  }
 }

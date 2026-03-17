@@ -62,6 +62,7 @@ export class PrismaUserRepository implements IUserRepository {
     const user = await this.prisma.user.findUnique({
       where: { username },
       select: {
+        id: true,
         username: true,
         firstName: true,
         lastName: true,
@@ -76,5 +77,31 @@ export class PrismaUserRepository implements IUserRepository {
       bio: user.bio ?? undefined,
       avatarUrl: user.avatarUrl ?? undefined,
     };
+  }
+
+  async followUser(
+    currentUserId: number,
+    userIdToFollow: number,
+  ): Promise<void> {
+    await this.prisma.follow.create({
+      data: {
+        followerId: currentUserId,
+        followingId: userIdToFollow,
+      },
+    });
+  }
+
+  async unfollowUser(
+    currentUserId: number,
+    userIdToUnfollow: number,
+  ): Promise<void> {
+    await this.prisma.follow.delete({
+      where: {
+        followerId_followingId: {
+          followerId: currentUserId,
+          followingId: userIdToUnfollow,
+        },
+      },
+    });
   }
 }
