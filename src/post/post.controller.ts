@@ -9,20 +9,23 @@ import {
   Delete,
   HttpCode,
   HttpStatus,
+  Query,
 } from '@nestjs/common';
 import { PostService } from './post.service';
 import { JwtGuard } from 'src/auth/guard/jwt.guard';
 import { GetUserId, GetUserRole, Roles } from 'src/auth/decorator';
 import { Role } from '@prisma/client';
 import { CreatePostDto, EditPostDto, EditCoverDto } from './dto';
+import { FilterPostDto } from './dto/filter-post.dto';
 
 @Controller('posts')
 export class PostController {
   constructor(private postService: PostService) {}
 
   @Get()
-  async getAllPosts() {
-    return await this.postService.getAllPosts();
+  async getAllPosts(@Query() filterDto: FilterPostDto) {
+    console.log('Received filter DTO:', filterDto);
+    return await this.postService.getAllPosts(filterDto);
   }
 
   @Get(':slug')

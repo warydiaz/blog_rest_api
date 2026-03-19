@@ -1,4 +1,5 @@
 import { Post } from '@prisma/client';
+import { FilterPostDto } from '../dto/filter-post.dto';
 
 export const POST_REPOSITORY = 'IPostRepository';
 
@@ -24,7 +25,7 @@ export interface UpdatePostData {
 }
 
 export interface IPostRepository {
-  findPublished(): Promise<Post[]>;
+  findPublished(filterDto: FilterPostDto): Promise<Post[]>;
   findBySlug(slug: string): Promise<Post | null>;
   findByTagId(tagId: number): Promise<Post[]>;
   create(data: CreatePostData): Promise<Post>;

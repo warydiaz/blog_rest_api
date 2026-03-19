@@ -5,6 +5,7 @@ import { PostError } from './error/post.error';
 import { CategoryService } from '../category/category.service';
 import type { IPostRepository } from './repository/post.repository.interface';
 import { POST_REPOSITORY } from './repository/post.repository.interface';
+import { FilterPostDto } from './dto/filter-post.dto';
 
 @Injectable()
 export class PostService {
@@ -13,8 +14,8 @@ export class PostService {
     private categoryService: CategoryService,
   ) {}
 
-  async getAllPosts(): Promise<Post[]> {
-    return this.postRepository.findPublished();
+  async getAllPosts(filterDto: FilterPostDto): Promise<Post[]> {
+    return this.postRepository.findPublished(filterDto);
   }
 
   async getPostBySlug(slug: string): Promise<Post> {
