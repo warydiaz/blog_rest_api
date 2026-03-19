@@ -104,4 +104,52 @@ export class PrismaUserRepository implements IUserRepository {
       },
     });
   }
+
+  async getFollowers(userId: number): Promise<PublicProfileDto[]> {
+    const followers = await this.prisma.follow.findMany({
+      where: { followingId: userId },
+      include: {
+        follower: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+            bio: true,
+            avatarUrl: true,
+          },
+        },
+      },
+    });
+
+    return followers.map((f) => ({
+      ...f.follower,
+      bio: f.follower.bio ?? undefined,
+      avatarUrl: f.follower.avatarUrl ?? undefined,
+    }));
+  }
+
+  async getFollowing(userId: number): Promise<PublicProfileDto[]> {
+    const following = await this.prisma.follow.findMany({
+      where: { followerId: userId },
+      include: {
+        following: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+            bio: true,
+            avatarUrl: true,
+          },
+        },
+      },
+    });
+
+    return following.map((f) => ({
+      ...f.following,
+      bio: f.following.bio ?? undefined,
+      avatarUrl: f.following.avatarUrl ?? undefined,
+    }));
+  }
 }

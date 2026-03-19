@@ -15,6 +15,10 @@ describe('UserService', () => {
     update: jest.fn(),
     delete: jest.fn(),
     findPublicProfileByUsername: jest.fn(),
+    followUser: jest.fn(),
+    unfollowUser: jest.fn(),
+    getFollowers: jest.fn(),
+    getFollowing: jest.fn(),
   };
 
   const mockStorageService = {
@@ -60,8 +64,8 @@ describe('UserService', () => {
       username: 'johndoe',
       firstName: dto.firstName!,
       lastName: dto.lastName!,
-      bio: null,
-      avatarUrl: null,
+      bio: undefined,
+      avatarUrl: undefined,
       role: Role.READER,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -129,11 +133,170 @@ describe('UserService', () => {
     });
   });
 
+  // ─── followUser ───────────────────────────────────────────────────────────
+
+  describe('followUser', () => {
+    const currentUserId = 1;
+    const username = 'janedoe';
+    const userToFollow: PublicProfileDto = {
+      id: 2,
+      username,
+      firstName: 'Jane',
+      lastName: 'Doe',
+      bio: undefined,
+      avatarUrl: undefined,
+    };
+
+    it('should follow user when target exists and is not self', async () => {
+      mockUserRepository.findPublicProfileByUsername.mockResolvedValue(userToFollow);
+      mockUserRepository.followUser.mockResolvedValue(undefined);
+
+      await service.followUser(currentUserId, username);
+
+      expect(mockUserRepository.findPublicProfileByUsername).toHaveBeenCalledWith(username);
+      expect(mockUserRepository.followUser).toHaveBeenCalledWith(currentUserId, userToFollow.id);
+    });
+
+    it('should throw UserError.UserNotFound when target does not exist', async () => {
+      mockUserRepository.findPublicProfileByUsername.mockResolvedValue(null);
+
+      await expect(service.followUser(currentUserId, username)).rejects.toThrow(
+        UserError.UserNotFound().message,
+      );
+
+      expect(mockUserRepository.followUser).not.toHaveBeenCalled();
+    });
+
+    it('should throw UserError.CannotFollowYourself when following self', async () => {
+      const selfProfile: PublicProfileDto = { ...userToFollow, id: currentUserId };
+      mockUserRepository.findPublicProfileByUsername.mockResolvedValue(selfProfile);
+
+      await expect(service.followUser(currentUserId, username)).rejects.toThrow(
+        UserError.CannotFollowYourself().message,
+      );
+
+      expect(mockUserRepository.followUser).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── unfollowUser ─────────────────────────────────────────────────────────
+
+  describe('unfollowUser', () => {
+    const currentUserId = 1;
+    const username = 'janedoe';
+    const userToUnfollow: PublicProfileDto = {
+      id: 2,
+      username,
+      firstName: 'Jane',
+      lastName: 'Doe',
+      bio: undefined,
+      avatarUrl: undefined,
+    };
+
+    it('should unfollow user when target exists', async () => {
+      mockUserRepository.findPublicProfileByUsername.mockResolvedValue(userToUnfollow);
+      mockUserRepository.unfollowUser.mockResolvedValue(undefined);
+
+      await service.unfollowUser(currentUserId, username);
+
+      expect(mockUserRepository.findPublicProfileByUsername).toHaveBeenCalledWith(username);
+      expect(mockUserRepository.unfollowUser).toHaveBeenCalledWith(currentUserId, userToUnfollow.id);
+    });
+
+    it('should throw UserError.UserNotFound when target does not exist', async () => {
+      mockUserRepository.findPublicProfileByUsername.mockResolvedValue(null);
+
+      await expect(service.unfollowUser(currentUserId, username)).rejects.toThrow(
+        UserError.UserNotFound().message,
+      );
+
+      expect(mockUserRepository.unfollowUser).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── getFollowers ─────────────────────────────────────────────────────────
+
+  describe('getFollowers', () => {
+    const username = 'johndoe';
+    const user: PublicProfileDto = {
+      id: 1,
+      username,
+      firstName: 'John',
+      lastName: 'Doe',
+      bio: undefined,
+      avatarUrl: undefined,
+    };
+    const followers: PublicProfileDto[] = [
+      { id: 2, username: 'alice', firstName: 'Alice', lastName: 'Smith', bio: undefined, avatarUrl: undefined },
+      { id: 3, username: 'bob', firstName: 'Bob', lastName: 'Jones', bio: undefined, avatarUrl: undefined },
+    ];
+
+    it('should return followers when user exists', async () => {
+      mockUserRepository.findPublicProfileByUsername.mockResolvedValue(user);
+      mockUserRepository.getFollowers.mockResolvedValue(followers);
+
+      const result = await service.getFollowers(username);
+
+      expect(mockUserRepository.findPublicProfileByUsername).toHaveBeenCalledWith(username);
+      expect(mockUserRepository.getFollowers).toHaveBeenCalledWith(user.id);
+      expect(result).toEqual(followers);
+    });
+
+    it('should throw UserError.UserNotFound when user does not exist', async () => {
+      mockUserRepository.findPublicProfileByUsername.mockResolvedValue(null);
+
+      await expect(service.getFollowers(username)).rejects.toThrow(
+        UserError.UserNotFound().message,
+      );
+
+      expect(mockUserRepository.getFollowers).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── getFollowing ─────────────────────────────────────────────────────────
+
+  describe('getFollowing', () => {
+    const username = 'johndoe';
+    const user: PublicProfileDto = {
+      id: 1,
+      username,
+      firstName: 'John',
+      lastName: 'Doe',
+      bio: undefined,
+      avatarUrl: undefined,
+    };
+    const following: PublicProfileDto[] = [
+      { id: 4, username: 'carol', firstName: 'Carol', lastName: 'White', bio: undefined, avatarUrl: undefined },
+    ];
+
+    it('should return following when user exists', async () => {
+      mockUserRepository.findPublicProfileByUsername.mockResolvedValue(user);
+      mockUserRepository.getFollowing.mockResolvedValue(following);
+
+      const result = await service.getFollowing(username);
+
+      expect(mockUserRepository.findPublicProfileByUsername).toHaveBeenCalledWith(username);
+      expect(mockUserRepository.getFollowing).toHaveBeenCalledWith(user.id);
+      expect(result).toEqual(following);
+    });
+
+    it('should throw UserError.UserNotFound when user does not exist', async () => {
+      mockUserRepository.findPublicProfileByUsername.mockResolvedValue(null);
+
+      await expect(service.getFollowing(username)).rejects.toThrow(
+        UserError.UserNotFound().message,
+      );
+
+      expect(mockUserRepository.getFollowing).not.toHaveBeenCalled();
+    });
+  });
+
   // ─── getPublicProfile ─────────────────────────────────────────────────────
 
   describe('getPublicProfile', () => {
     const username = 'johndoe';
     const profile: PublicProfileDto = {
+      id: 1,
       username,
       firstName: 'John',
       lastName: 'Doe',

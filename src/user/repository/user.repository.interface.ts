@@ -38,4 +38,6 @@ export interface IUserRepository {
   ): Promise<PublicProfileDto | null>;
   followUser(currentUserId: number, userIdToFollow: number): Promise<void>;
   unfollowUser(currentUserId: number, userIdToUnfollow: number): Promise<void>;
+  getFollowers(userId: number): Promise<PublicProfileDto[]>;
+  getFollowing(userId: number): Promise<PublicProfileDto[]>;
 }

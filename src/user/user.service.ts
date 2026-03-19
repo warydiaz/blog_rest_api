@@ -74,4 +74,18 @@ export class UserService {
     if (!userToUnfollow) throw UserError.UserNotFound();
     await this.userRepository.unfollowUser(currentUserId, userToUnfollow.id);
   }
+
+  async getFollowers(username: string): Promise<PublicProfileDto[]> {
+    const user =
+      await this.userRepository.findPublicProfileByUsername(username);
+    if (!user) throw UserError.UserNotFound();
+    return await this.userRepository.getFollowers(user.id);
+  }
+
+  async getFollowing(username: string): Promise<PublicProfileDto[]> {
+    const user =
+      await this.userRepository.findPublicProfileByUsername(username);
+    if (!user) throw UserError.UserNotFound();
+    return await this.userRepository.getFollowing(user.id);
+  }
 }
