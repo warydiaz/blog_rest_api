@@ -27,7 +27,13 @@ export class PrismaPostRepository implements IPostRepository {
   findPublished(filterDto: FilterPostDto): Promise<Post[]> {
     const whereClause = this.buildWhereClause(filterDto);
 
-    return this.prisma.post.findMany({ where: whereClause });
+    const skip = (filterDto.page! - 1) * filterDto.limit!;
+
+    return this.prisma.post.findMany({
+      where: whereClause,
+      skip,
+      take: filterDto.limit,
+    });
   }
 
   findBySlug(slug: string): Promise<Post | null> {

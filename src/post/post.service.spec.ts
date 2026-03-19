@@ -63,13 +63,42 @@ describe('PostService', () => {
   // ─── getAllPosts ───────────────────────────────────────────────────────────
 
   describe('getAllPosts', () => {
-    it('should return all published posts', async () => {
+    it('should return all published posts with default pagination', async () => {
       mockPostRepository.findPublished.mockResolvedValue([mockPost]);
+      const filterDto = { page: 1, limit: 10 };
 
-      const result = await service.getAllPosts();
+      const result = await service.getAllPosts(filterDto);
 
+      expect(mockPostRepository.findPublished).toHaveBeenCalledWith(filterDto);
       expect(mockPostRepository.findPublished).toHaveBeenCalledTimes(1);
       expect(result).toEqual([mockPost]);
+    });
+
+    it('should forward page and limit to the repository', async () => {
+      mockPostRepository.findPublished.mockResolvedValue([mockPost]);
+      const filterDto = { page: 2, limit: 5 };
+
+      await service.getAllPosts(filterDto);
+
+      expect(mockPostRepository.findPublished).toHaveBeenCalledWith(filterDto);
+    });
+
+    it('should forward filters combined with pagination to the repository', async () => {
+      mockPostRepository.findPublished.mockResolvedValue([mockPost]);
+      const filterDto = { title: 'Test', page: 3, limit: 20 };
+
+      await service.getAllPosts(filterDto);
+
+      expect(mockPostRepository.findPublished).toHaveBeenCalledWith(filterDto);
+    });
+
+    it('should return empty array when no posts match', async () => {
+      mockPostRepository.findPublished.mockResolvedValue([]);
+      const filterDto = { page: 1, limit: 10 };
+
+      const result = await service.getAllPosts(filterDto);
+
+      expect(result).toEqual([]);
     });
   });
 

@@ -131,6 +131,41 @@ describe('PostController', () => {
       expect(postService.getAllPosts).toHaveBeenCalledWith(filter);
       expect(result).toEqual([]);
     });
+
+    it('should pass page and limit to postService.getAllPosts', async () => {
+      postService.getAllPosts.mockResolvedValue([mockPost]);
+      const filter: FilterPostDto = { page: 2, limit: 5 };
+
+      const result = await controller.getAllPosts(filter);
+
+      expect(postService.getAllPosts).toHaveBeenCalledWith(filter);
+      expect(result).toEqual([mockPost]);
+    });
+
+    it('should pass default pagination values when not specified', async () => {
+      postService.getAllPosts.mockResolvedValue([mockPost]);
+      const filter: FilterPostDto = { page: 1, limit: 10 };
+
+      const result = await controller.getAllPosts(filter);
+
+      expect(postService.getAllPosts).toHaveBeenCalledWith(filter);
+      expect(result).toEqual([mockPost]);
+    });
+
+    it('should pass combined filters and pagination to postService.getAllPosts', async () => {
+      postService.getAllPosts.mockResolvedValue([mockPost]);
+      const filter: FilterPostDto = {
+        title: 'Test',
+        categoryId: 1,
+        page: 3,
+        limit: 20,
+      };
+
+      const result = await controller.getAllPosts(filter);
+
+      expect(postService.getAllPosts).toHaveBeenCalledWith(filter);
+      expect(result).toEqual([mockPost]);
+    });
   });
 
   // ─── getPostBySlug ────────────────────────────────────────────────────────

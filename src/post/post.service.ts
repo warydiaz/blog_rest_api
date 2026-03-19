@@ -27,7 +27,11 @@ export class PostService {
 
     const { tagIds, ...postData } = dto;
 
-    return this.postRepository.create({ ...postData, authorId: userId, tagIds });
+    return this.postRepository.create({
+      ...postData,
+      authorId: userId,
+      tagIds,
+    });
   }
 
   async updatePost(
@@ -73,7 +77,9 @@ export class PostService {
     const post = await this.findPostOrFail(slug);
     this.validateOwnership(post, userId, role);
 
-    return this.postRepository.update(slug, { coverImageUrl: dto.coverImageUrl });
+    return this.postRepository.update(slug, {
+      coverImageUrl: dto.coverImageUrl,
+    });
   }
 
   async getPublishedPostsByTagId(tagId: number): Promise<Post[]> {

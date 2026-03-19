@@ -6,8 +6,9 @@ import {
   IsOptional,
   IsString,
 } from 'class-validator';
+import { PaginationDto } from './pagination.dto';
 
-export class FilterPostDto {
+export class FilterPostDto extends PaginationDto {
   @IsOptional()
   @IsString()
   title?: string;
