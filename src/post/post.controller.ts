@@ -24,7 +24,6 @@ export class PostController {
 
   @Get()
   async getAllPosts(@Query() filterDto: FilterPostDto) {
-    console.log('Received filter DTO:', filterDto);
     return await this.postService.getAllPosts(filterDto);
   }
 

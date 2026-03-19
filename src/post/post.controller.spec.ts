@@ -4,6 +4,7 @@ import { PostService } from './post.service';
 import { CreatePostDto, EditPostDto } from './dto';
 import { PostError } from './error/post.error';
 import { EditCoverDto } from './dto/edit-cover.dto';
+import { FilterPostDto } from './dto/filter-post.dto';
 import { Role } from '@prisma/client';
 
 describe('PostController', () => {
@@ -56,13 +57,79 @@ describe('PostController', () => {
   // ─── getAllPosts ───────────────────────────────────────────────────────────
 
   describe('getAllPosts', () => {
-    it('should call postService.getAllPosts and return results', async () => {
+    it('should call postService.getAllPosts with empty filter and return results', async () => {
       postService.getAllPosts.mockResolvedValue([mockPost]);
+      const filter: FilterPostDto = {};
 
-      const result = await controller.getAllPosts();
+      const result = await controller.getAllPosts(filter);
 
+      expect(postService.getAllPosts).toHaveBeenCalledWith(filter);
       expect(postService.getAllPosts).toHaveBeenCalledTimes(1);
       expect(result).toEqual([mockPost]);
+    });
+
+    it('should pass title filter to postService.getAllPosts', async () => {
+      postService.getAllPosts.mockResolvedValue([mockPost]);
+      const filter: FilterPostDto = { title: 'Test' };
+
+      const result = await controller.getAllPosts(filter);
+
+      expect(postService.getAllPosts).toHaveBeenCalledWith(filter);
+      expect(result).toEqual([mockPost]);
+    });
+
+    it('should pass slug filter to postService.getAllPosts', async () => {
+      postService.getAllPosts.mockResolvedValue([mockPost]);
+      const filter: FilterPostDto = { slug: 'test-post' };
+
+      const result = await controller.getAllPosts(filter);
+
+      expect(postService.getAllPosts).toHaveBeenCalledWith(filter);
+      expect(result).toEqual([mockPost]);
+    });
+
+    it('should pass categoryId filter to postService.getAllPosts', async () => {
+      postService.getAllPosts.mockResolvedValue([mockPost]);
+      const filter: FilterPostDto = { categoryId: 1 };
+
+      const result = await controller.getAllPosts(filter);
+
+      expect(postService.getAllPosts).toHaveBeenCalledWith(filter);
+      expect(result).toEqual([mockPost]);
+    });
+
+    it('should pass tagIds filter to postService.getAllPosts', async () => {
+      postService.getAllPosts.mockResolvedValue([mockPost]);
+      const filter: FilterPostDto = { tagIds: [2, 3] };
+
+      const result = await controller.getAllPosts(filter);
+
+      expect(postService.getAllPosts).toHaveBeenCalledWith(filter);
+      expect(result).toEqual([mockPost]);
+    });
+
+    it('should pass combined filters to postService.getAllPosts', async () => {
+      postService.getAllPosts.mockResolvedValue([mockPost]);
+      const filter: FilterPostDto = {
+        title: 'Test',
+        categoryId: 1,
+        tagIds: [2],
+      };
+
+      const result = await controller.getAllPosts(filter);
+
+      expect(postService.getAllPosts).toHaveBeenCalledWith(filter);
+      expect(result).toEqual([mockPost]);
+    });
+
+    it('should return empty array when no posts match the filter', async () => {
+      postService.getAllPosts.mockResolvedValue([]);
+      const filter: FilterPostDto = { title: 'nonexistent' };
+
+      const result = await controller.getAllPosts(filter);
+
+      expect(postService.getAllPosts).toHaveBeenCalledWith(filter);
+      expect(result).toEqual([]);
     });
   });
 
@@ -180,7 +247,12 @@ describe('PostController', () => {
       const updatedPost = { ...mockPost };
       postService.updatePost.mockResolvedValue(updatedPost);
 
-      await controller.updatePost(userId, 'test-post', dtoWithTags, Role.AUTHOR);
+      await controller.updatePost(
+        userId,
+        'test-post',
+        dtoWithTags,
+        Role.AUTHOR,
+      );
 
       expect(postService.updatePost).toHaveBeenCalledWith(
         userId,
